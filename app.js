@@ -6,7 +6,8 @@ require('dotenv').config();
 const connectDB = require('./config/database');
 
 // Import routes
-const userRoutes = require('./routes/userRoutes');
+// const userRoutes = require('./routes/userRoutes');
+const authRoutes = require('./routes/authRoutes');
 
 const errorHandler = require('./middleware/errorHandler');
 
@@ -29,8 +30,9 @@ app.get('/', (req, res) => {
 });
 
 // API Routes
-app.use('/api/users', userRoutes);
+// app.use('/api/users', userRoutes);
 
+app.use('/api/auth', authRoutes);
 
 app.all('*', (req, res) => {
   throw new Error('Route not found');
