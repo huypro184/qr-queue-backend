@@ -1,20 +1,11 @@
-const { registerUser } = require('../services/authService');
+const { 
+  registerUser, 
+  loginUser, 
+} = require('../services/authService');
 const { asyncHandler } = require('../utils/asyncHandler');
-const AppError = require('../utils/AppError');
-const { model } = require('mongoose');
 
-const register = asyncHandler(async (req, res, next) => {
-    const { name, email, password, phone} = req.body;
-
-    if (!name || !email || !password || !phone) {
-        return next(new AppError('Please provide all required fields', 400));
-    }
-
-    if (password.length < 8) {
-        return next(new AppError('Password must be at least 8 characters long', 400));
-    }
-
-    const user = await registerUser({ name, email, password, phone });
+const register = asyncHandler(async (req, res) => {
+    const user = await registerUser(req.body);
 
     res.status(201).json({
         status: 'success',
@@ -25,6 +16,20 @@ const register = asyncHandler(async (req, res, next) => {
     });
 });
 
+const login = asyncHandler(async (req, res) => {
+    const user = await loginUser(req.body);
+
+    res.status(200).json({
+        status: 'success',
+        message: 'Login successful',
+        data: {
+            user
+        }
+    });
+});
+
+
 module.exports = {
-    register
+    register,
+    login,
 };
