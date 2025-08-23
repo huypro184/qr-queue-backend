@@ -29,6 +29,7 @@ const UserSchema = new mongoose.Schema({
     type: String,
     required: true,
     minlength: 8,
+    select: false
   },
   role: { 
     type: String, 
@@ -40,9 +41,19 @@ const UserSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     ref: "Project", 
     index: true 
-  }]
+  }],
+  passwordChangedAt: {
+    type: Date
+  }
 }, { 
   timestamps: true 
+});
+
+UserSchema.pre('save', function(next) {
+  if (!this.isModified('password')) return next();
+
+  this.passwordChangedAt = Date.now();
+  next();
 });
 
 module.exports = mongoose.model('User', UserSchema);
