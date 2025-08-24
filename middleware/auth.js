@@ -31,11 +31,20 @@ const protect = asyncHandler(async (req, res, next) => {
             return next(new AppError('User recently changed password! Please log in again.', 401));
         }
     }
-
     req.user = freshUser;
     next();
 });
 
+const restrictTo = (...roles) => {
+    return (req, res, next) => {
+        if (!req.user || !roles.includes(req.user.role)) {
+            return next(new AppError('You do not have permission to perform this action', 403));
+        }
+        next();
+    };
+};
+
 module.exports = {
-    protect
+    protect,
+    restrictTo
 };
