@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const AppError = require('../utils/AppError');
 const jwt = require('jsonwebtoken');
 const sendEmail = require('../utils/email');
+const crypto = require('crypto');
 
 const registerUser = async (userData) => {
   const { email, password, name, phone } = userData;
@@ -113,8 +114,39 @@ QR Queue Team`;
 };
 
 const resetPasswordUser = async (token, newPassword) => {
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-}
+  const user = await User.findOne({
+    passwordResetToken: hashedToken,
+    passwordResetExpires: { $gt: Date.now() }
+  });
+
+  if (!user) {
+    throw new AppError('Token is invalid or has expired', 400);
+  }
+
+  if (!newPassword || newPassword.length < 8) {
+    throw new AppError('Password must be at least 8 characters long', 400);
+  }
+
+  user.password = await bcrypt.hash(newPassword, 12);
+  user.passwordResetToken = undefined;
+  user.passwordResetExpires = undefined;
+  user.passwordChangedAt = new Date();
+  
+  await user.save();
+
+  const newToken = jwt.sign(
+    { id: user._id, email: user.email, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRES_IN }
+  );
+
+  const { password: _, ...userResponse } = user.toObject();
+  return { 
+    token: newToken,
+  };
+};
 
 module.exports = {
   registerUser,

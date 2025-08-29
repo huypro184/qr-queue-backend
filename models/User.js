@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const crypto = require('crypto');
+const { type } = require('os');
 
 const UserSchema = new mongoose.Schema({
   name: {
@@ -44,6 +45,12 @@ const UserSchema = new mongoose.Schema({
     index: true 
   }],
   passwordChangedAt: {
+    type: Date
+  },
+  passwordResetToken: {
+    type: String
+  },
+  passwordResetExpires: {
     type: Date
   }
 }, { 

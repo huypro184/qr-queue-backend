@@ -6,6 +6,7 @@ const { protect, restrictTo } = require('../middleware/auth');
 const router = express.Router();
 
 router.post('/', protect, createNewUser);
-router.get('/', protect, restrictTo('admin'), getUsers);
+// router.get('/', protect, restrictTo('admin'), getUsers);
+router.get('/', protect, getUsers);
 
 module.exports = router;
