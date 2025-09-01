@@ -24,7 +24,6 @@ const connectDB = async () => {
     await sequelize.authenticate();
     console.log('✅ PostgreSQL Connected:', process.env.DB_HOST);
     console.log('Database Name:', process.env.DB_NAME);
-    // Không sync nếu đã có schema
   } catch (error) {
     console.error('Error connecting to PostgreSQL:', error.message);
     process.exit(1);
