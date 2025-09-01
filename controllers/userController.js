@@ -1,18 +1,36 @@
-const {createUser, getAllUsers} = require('../services/userService');
+const {createAdmin, createStaff,getAllUsers} = require('../services/userService');
 const { asyncHandler } = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 
-const createNewUser = asyncHandler(async (req, res, next) => {
-    const { name, email, password } = req.body;
+const createNewAdmin = asyncHandler(async (req, res, next) => {
+    const { name, email, password, phone, project_id } = req.body;
 
     if (!name || !email || !password) {
-        return next(new AppError('Please provide name, email, and password', 400));
+        return next(new AppError('Please provide name, email, password', 400));
     }
 
-    const user = await createUser(req.body);
+    const user = await createAdmin(req.body);
+    
     res.status(201).json({
+        status: 'success',
         message: 'User created successfully',
         data: user
+    });
+});
+
+const createNewStaff = asyncHandler(async (req, res, next) => {
+    const { name, email, password, phone, service_ids } = req.body;
+
+    if (!name || !email || !password) {
+        return next(new AppError('Please provide name, email and password', 400));
+    }
+
+    const staff = await createStaff(req.body, req.user);
+    
+    res.status(201).json({
+        status: 'success',
+        message: 'Staff created successfully',
+        data: staff
     });
 });
 
@@ -30,6 +48,7 @@ const getUsers = asyncHandler(async (req, res, next) => {
 });
 
 module.exports = {
-    createNewUser,
+    createNewAdmin,
+    createNewStaff,
     getUsers
 };
