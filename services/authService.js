@@ -7,9 +7,9 @@ const crypto = require('crypto');
 const { Op } = require('sequelize');
 
 const registerUser = async (userData) => {
-  const { email, password, name, phone } = userData;
+  const { email, password, name } = userData;
 
-  if (!name || !email || !password || !phone) {
+  if (!name || !email || !password) {
     throw new AppError('Please provide all required fields', 400);
   }
 
@@ -22,11 +22,6 @@ const registerUser = async (userData) => {
     throw new AppError('User already exists with this email', 409);
   }
 
-  const existingPhone = await User.findOne({ where: { phone } });
-  if (existingPhone) {
-    throw new AppError('Phone number already exists', 409);
-  }
-
   const saltRounds = 12;
   const hashedPassword = await bcrypt.hash(password, saltRounds);
 
@@ -34,7 +29,6 @@ const registerUser = async (userData) => {
     name,
     email,
     password_hash: hashedPassword,
-    phone
   });
 
   const { password_hash, ...userResponse } = newUser.toJSON();
