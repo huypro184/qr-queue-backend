@@ -1,55 +1,55 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const TicketSchema = new mongoose.Schema({
-  lineId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: "Line", 
-    required: true,
-    index: true 
+const Ticket = sequelize.define('Ticket', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
   },
-  userId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: "User", 
-    index: true 
+  line_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'lines',
+      key: 'id'
+    },
+    field: 'line_id'
   },
-  serviceId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: "Service", 
-    required: true,
-    index: true 
+  user_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'users',
+      key: 'user_id'
+    },
+    field: 'user_id'
   },
-  
-  number: { 
-    type: Number, 
-    required: true,
-    min: 1,
-    index: true 
+  status: {
+    type: DataTypes.STRING(50),
+    defaultValue: 'waiting',
+    validate: {
+      isIn: [['waiting', 'serving', 'done', 'cancelled']]
+    }
   },
-  
-  status: { 
-    type: String, 
-    enum: ["waiting", "served", "canceled"], 
-    default: "waiting", 
-    index: true 
+  joined_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+    field: 'joined_at'
   },
-  
-  expiredAt: {
-    type: Date,
-    default: () => new Date(Date.now() + 8 * 60 * 60 * 1000)
+  served_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'served_at'
   },
-  
-  calledAt: {
-    type: Date
-  },
-  servedAt: {
-    type: Date
+  finished_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'finished_at'
   }
-}, { 
-  timestamps: true 
+}, {
+  tableName: 'tickets',
+  timestamps: false
 });
 
-TicketSchema.index({ lineId: 1, number: 1 }, { unique: true });
-
-TicketSchema.index({ expiredAt: 1 }, { expireAfterSeconds: 0 });
-
-module.exports = mongoose.model('Ticket', TicketSchema);
+module.exports = Ticket;

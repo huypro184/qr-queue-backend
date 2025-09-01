@@ -1,54 +1,57 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const LineSchema = new mongoose.Schema({
-  projectId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: "Project", 
-    required: true,
-    index: true 
+const Line = sequelize.define('Line', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  service_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'services',
+      key: 'id'
+    },
+    field: 'service_id'
   },
   name: {
-    type: String,
-    required: true,
-    trim: true
+    type: DataTypes.STRING(100),
+    allowNull: false,
+    validate: {
+      notEmpty: true
+    }
   },
-  managerId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: "User", 
-    required: true,
-    index: true 
+  status: {
+    type: DataTypes.STRING(50),
+    defaultValue: 'active',
+    validate: {
+      isIn: [['active', 'closed']]
+    }
   },
-  total: { 
-    type: Number, 
-    default: 0,
-    min: 0
-  },
-  current: { 
-    type: Number, 
-    default: 0,
-    min: 0
-  },
-  serviceIds: [{ 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: "Service", 
-    index: true 
-  }],
-
-  serviceStats: [{
-    serviceId: { 
-      type: mongoose.Schema.Types.ObjectId, 
-      ref: "Service" 
-    },
-    waitingCount: { 
-      type: Number, 
-      default: 0,
+  total: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    validate: {
       min: 0
     }
-  }]
-}, { 
-  timestamps: true 
+  },
+  current: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    validate: {
+      min: 0
+    }
+  },
+  created_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+    field: 'created_at'
+  }
+}, {
+  tableName: 'lines',
+  timestamps: false
 });
 
-LineSchema.index({ projectId: 1, name: 1 }, { unique: true });
-
-module.exports = mongoose.model('Line', LineSchema);
+module.exports = Line;

@@ -20,7 +20,7 @@ const protect = asyncHandler(async (req, res, next) => {
 
     const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
 
-    const freshUser = await User.findById(decoded.id);
+    const freshUser = await User.findByPk(decoded.id);
     if (!freshUser) {
         return next(new AppError('The user belonging to this token no longer exists', 401));
     }

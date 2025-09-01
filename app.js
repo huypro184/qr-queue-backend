@@ -2,8 +2,10 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
+const { specs, swaggerUi } = require('./config/swagger');
+
 // Import database connection
-const connectDB = require('./config/database');
+const { connectDB } = require('./config/database');
 
 // Import routes
 const userRoutes = require('./routes/userRoutes');
@@ -21,11 +23,15 @@ connectDB();
 app.use(cors());
 app.use(express.json());
 
+// Swagger documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+
 // Routes
 app.get('/', (req, res) => {
   res.json({
     message: 'Hello World! QR Queue API is running',
     status: 'success',
+    documentation: `http://localhost:${PORT}/api-docs`
   });
 });
 
@@ -42,4 +48,5 @@ app.use(errorHandler);
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`API URL: http://localhost:${PORT}`);
+  console.log(`Documentation: http://localhost:${PORT}/api-docs`);
 });

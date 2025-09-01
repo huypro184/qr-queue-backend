@@ -1,36 +1,45 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const ServiceSchema = new mongoose.Schema({
-  projectId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: "Project", 
-    required: true,
-    index: true 
+const Service = sequelize.define('Service', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  project_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'projects',
+      key: 'id'
+    },
+    field: 'project_id'
   },
   name: {
-    type: String,
-    required: true,
-    trim: true
+    type: DataTypes.STRING(150),
+    allowNull: false,
+    validate: {
+      notEmpty: true
+    }
   },
   description: {
-    type: String,
-    trim: true
+    type: DataTypes.TEXT,
+    allowNull: true
   },
-  managerId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: "User",
-    required: true
+  average_service_time: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'average_service_time'
   },
-  status: { 
-    type: String, 
-    enum: ["active", "pending", "done"], 
-    default: "active", 
-    index: true 
+  created_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+    field: 'created_at'
   }
-}, { 
-  timestamps: true 
+}, {
+  tableName: 'services',
+  timestamps: false
 });
 
-ServiceSchema.index({ projectId: 1, name: 1 }, { unique: true });
-
-module.exports = mongoose.model('Service', ServiceSchema);
+module.exports = Service;

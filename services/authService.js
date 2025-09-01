@@ -4,6 +4,7 @@ const AppError = require('../utils/AppError');
 const jwt = require('jsonwebtoken');
 const sendEmail = require('../utils/email');
 const crypto = require('crypto');
+const { Op } = require('sequelize');
 
 const registerUser = async (userData) => {
   const { email, password, name, phone } = userData;
@@ -16,12 +17,12 @@ const registerUser = async (userData) => {
     throw new AppError('Password must be at least 8 characters long', 400);
   }
 
-  const existingUser = await User.findOne({ email });
+  const existingUser = await User.findOne({ where: { email } });
   if (existingUser) {
     throw new AppError('User already exists with this email', 409);
   }
 
-  const existingPhone = await User.findOne({ phone });
+  const existingPhone = await User.findOne({ where: { phone } });
   if (existingPhone) {
     throw new AppError('Phone number already exists', 409);
   }
@@ -32,11 +33,11 @@ const registerUser = async (userData) => {
   const newUser = await User.create({
     name,
     email,
-    password: hashedPassword,
+    password_hash: hashedPassword,
     phone
   });
 
-  const { password: _, ...userResponse } = newUser.toObject();
+  const { password_hash, ...userResponse } = newUser.toJSON();
   return { user: userResponse };
 };
 
@@ -47,27 +48,27 @@ const loginUser = async (loginData) => {
     throw new AppError('Please provide email and password', 400);
   }
 
-  const user = await User.findOne({ email }).select('+password');
+  const user = await User.scope('withPassword').findOne({ where: { email } });
 
   if (!user) {
     throw new AppError('Invalid email or password', 401);
   }
 
-  const isPasswordCorrect = await bcrypt.compare(password, user.password);
+  const isPasswordCorrect = await bcrypt.compare(password, user.password_hash);
   if (!isPasswordCorrect) {
     throw new AppError('Invalid email or password', 401);
   }
 
-  const token = jwt.sign({ id: user._id, email: user.email, role: user.role }, process.env.JWT_SECRET, {
+  const token = jwt.sign({ id: user.user_id, email: user.email, role: user.role }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN
   });
 
-  const { password: _, ...userResponse } = user.toObject();
+  const { password_hash, ...userResponse } = user.toJSON();
   return { user: userResponse, token };
 };
 
 const forgotPasswordUser = async (email, baseResetURL) => {
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ where: { email } });
 
   if (!user) {
     throw new AppError('There is no user with this email address', 404);
@@ -117,9 +118,11 @@ const resetPasswordUser = async (token, newPassword) => {
   const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
   const user = await User.findOne({
+  where: {
     passwordResetToken: hashedToken,
-    passwordResetExpires: { $gt: Date.now() }
-  });
+    passwordResetExpires: { [Op.gt]: new Date() }
+  }
+});
 
   if (!user) {
     throw new AppError('Token is invalid or has expired', 400);
@@ -129,7 +132,7 @@ const resetPasswordUser = async (token, newPassword) => {
     throw new AppError('Password must be at least 8 characters long', 400);
   }
 
-  user.password = await bcrypt.hash(newPassword, 12);
+  user.password_hash = await bcrypt.hash(newPassword, 12);
   user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
   user.passwordChangedAt = new Date();
@@ -137,12 +140,12 @@ const resetPasswordUser = async (token, newPassword) => {
   await user.save();
 
   const newToken = jwt.sign(
-    { id: user._id, email: user.email, role: user.role },
+    { id: user.user_id, email: user.email, role: user.role },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN }
   );
 
-  const { password: _, ...userResponse } = user.toObject();
+  const { password_hash, ...userResponse } = user.toJSON();
   return { 
     token: newToken,
   };
