@@ -3,6 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const { specs, swaggerUi } = require('./config/swagger');
+require('./models');
 
 // Import database connection
 const { connectDB } = require('./config/database');
@@ -10,6 +11,7 @@ const { connectDB } = require('./config/database');
 // Import routes
 const userRoutes = require('./routes/userRoutes');
 const authRoutes = require('./routes/authRoutes');
+const projectRoutes = require('./routes/projectRoutes');
 
 const errorHandler = require('./middleware/errorHandler');
 
@@ -38,6 +40,7 @@ app.get('/', (req, res) => {
 // API Routes
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/projects', projectRoutes);
 
 app.all('*', (req, res) => {
   throw new Error('Route not found');
