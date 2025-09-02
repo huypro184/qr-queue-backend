@@ -1,8 +1,7 @@
-const User = require('../models/User');
-const Project = require('../models/Project');
+const { User, Project, Service } = require('../models');
 const bcrypt = require('bcrypt');
 const AppError = require('../utils/AppError');
-const Service = require('../models/Service');
+const { Op } = require('sequelize');
 
 const validateAndCheckUser = async (name, email, password, phone) => {
     if (!name || !email || !password) {
@@ -106,14 +105,106 @@ const createStaff = async (data, currentUser) => {
     }
 };
 
-const getAllUsers = async () => {
+const getAllUsers = async (currentUser, filters = {}) => {
     try {
-        const users = await User.findAll();
-        const safeUsers = users.map(u => {
-            const { passwordResetToken, passwordResetExpires, passwordChangedAt, password_hash, ...rest } = u.toJSON();
-            return rest;
+        const { role, search, page = 1, limit = 10 } = filters;
+        
+        let whereClause = {
+            status: 'active'
+        };
+
+        if (currentUser.role === 'superadmin') {
+            if (role) {
+                whereClause.role = role;
+            }
+        } else if (currentUser.role === 'admin') {
+            whereClause.project_id = currentUser.project_id;
+            whereClause.role = 'staff';
+        }
+
+        whereClause.user_id = { [Op.not]: currentUser.user_id };
+
+        if (search) {
+            whereClause[Op.or] = [
+                { name: { [Op.iLike]: `%${search}%` } },
+                { email: { [Op.iLike]: `%${search}%` } }
+            ];
+        }
+
+        const offset = (page - 1) * limit;
+
+        const { count, rows: users } = await User.findAndCountAll({
+            where: whereClause,
+            include: [
+                {
+                    model: Project,
+                    as: 'project',
+                    attributes: ['name'],
+                    required: false
+                }
+            ],
+            order: [['created_at', 'DESC']],
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            attributes: { exclude: ['password_hash', 'passwordResetToken', 'passwordResetExpires', 'passwordChangedAt'] }
         });
-        return safeUsers;
+
+        const message = count === 0 ? 'Users not found' : null;
+
+        return {
+            users,
+            message,
+            pagination: {
+                total: count,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPages: Math.ceil(count / limit),
+                hasNext: page < Math.ceil(count / limit),
+                hasPrev: page > 1
+            }
+        };
+    } catch (error) {
+        throw error;
+    }
+};
+
+const deleteUser = async (userId, currentUser) => {
+    try {
+        if (parseInt(userId) === currentUser.user_id) {
+            throw new AppError('You cannot delete your own account', 400);
+        }
+
+        let whereClause = { user_id: userId };
+
+        if (currentUser.role === 'admin') {
+            whereClause.project_id = currentUser.project_id;
+            whereClause.role = 'staff';
+        }
+
+        const userToDelete = await User.findOne({
+            where: whereClause,
+            attributes: ['user_id', 'name', 'email', 'role', 'project_id', 'status']
+        });
+
+        if (!userToDelete) {
+            throw new AppError('User not found', 404);
+        }
+
+        await User.update(
+            { status: 'inactive' },
+            { where: { user_id: userId } }
+        );
+
+        return {
+            message: `User ${userToDelete.name} has been deleted successfully`,
+            deletedUser: {
+                user_id: userToDelete.user_id,
+                name: userToDelete.name,
+                email: userToDelete.email,
+                role: userToDelete.role
+            }
+        };
+
     } catch (error) {
         throw error;
     }
@@ -122,5 +213,6 @@ const getAllUsers = async () => {
 module.exports = {
     createAdmin,
     createStaff,
-    getAllUsers
+    getAllUsers,
+    deleteUser
 };

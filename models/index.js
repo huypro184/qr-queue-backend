@@ -4,6 +4,16 @@ const Service = require('./Service');
 const Line = require('./Line');
 const Ticket = require('./Ticket');
 
+User.belongsTo(Project, { 
+  foreignKey: 'project_id', 
+  as: 'project' 
+});
+Project.hasMany(User, { 
+  foreignKey: 'project_id', 
+  as: 'users',
+  onDelete: 'SET NULL'
+});
+
 Project.hasMany(Service, { 
   foreignKey: 'project_id', 
   as: 'services',
