@@ -210,9 +210,118 @@ const deleteUser = async (userId, currentUser) => {
     }
 };
 
+const updateUser = async (userId, updateData, currentUser) => {
+    try {
+        const { name, email, phone, role, project_id } = updateData;
+
+        let whereClause = {
+            user_id: userId,
+            status: 'active'
+        };
+
+        if (currentUser.role === 'admin') {
+            whereClause.project_id = currentUser.project_id;
+            whereClause.role = 'staff';
+        }
+
+        const userToUpdate = await User.findOne({ where: whereClause });
+        if (!userToUpdate) {
+            throw new AppError('User not found', 404);
+        }
+
+        if (name && !name.trim()) {
+            throw new AppError('Please provide name', 400);
+        }
+
+        if (email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                throw new AppError('Please provide a valid email', 400);
+            }
+
+            const existingUser = await User.findOne({ 
+                where: { 
+                    email: email.toLowerCase().trim(),
+                    user_id: { [Op.not]: userId }
+                }
+            });
+            if (existingUser) {
+                throw new AppError('User already exists with this email', 409);
+            }
+        }
+
+        if (phone && phone !== userToUpdate.phone) {
+            const existingUserByPhone = await User.findOne({ 
+                where: { 
+                    phone: phone.trim(),
+                    user_id: { [Op.not]: userId }
+                }
+            });
+            if (existingUserByPhone) {
+                throw new AppError('Phone number already exists', 409);
+            }
+        }
+
+        const dataToUpdate = {};
+        
+        if (name) dataToUpdate.name = name.trim();
+        if (email) dataToUpdate.email = email.toLowerCase().trim();
+        if (phone !== undefined) dataToUpdate.phone = phone ? phone.trim() : null;
+
+        if (currentUser.role === 'superadmin') {
+            if (userToUpdate.role === 'superadmin' && role !== 'superadmin') {
+            throw new AppError('Cannot downgrade the only superadmin in the system', 400);
+            }
+            dataToUpdate.role = role;
+            if (project_id !== undefined) {
+            if (project_id) {
+                const project = await Project.findByPk(project_id);
+                if (!project) {
+                throw new AppError('Project not found', 404);
+                }
+                dataToUpdate.project_id = project.id;
+            } else {
+                dataToUpdate.project_id = null;
+            }
+            }
+        } else if (currentUser.role === 'admin') {
+            if (role || project_id !== undefined) {
+            throw new AppError('Admin cannot update role or project', 403);
+            }
+        }
+
+        dataToUpdate.updated_at = new Date();
+
+        await User.update(dataToUpdate, {
+            where: { user_id: userId }
+        });
+
+        const updatedUser = await User.findOne({
+            where: { user_id: userId },
+            include: [
+                {
+                    model: Project,
+                    as: 'project',
+                    attributes: ['name'],
+                    required: false
+                }
+            ],
+            attributes: { exclude: ['password_hash', 'passwordResetToken', 'passwordResetExpires', 'passwordChangedAt'] }
+        });
+
+        return {
+            user: updatedUser
+        };
+
+    } catch (error) {
+        throw error;
+    }
+};
+
 module.exports = {
     createAdmin,
     createStaff,
     getAllUsers,
-    deleteUser
+    deleteUser,
+    updateUser
 };
