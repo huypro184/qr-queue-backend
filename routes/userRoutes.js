@@ -1,5 +1,5 @@
 const express = require('express');
-const { createNewAdmin, createNewStaff, getUsers, deleteUser } = require('../controllers/userController');
+const { createNewAdmin, createNewStaff, getUsers, deleteUser, updateUser } = require('../controllers/userController');
 const { protect, restrictTo } = require('../middleware/auth');
 
 
@@ -9,5 +9,6 @@ router.post('/createAdmin', protect, restrictTo('superadmin'), createNewAdmin);
 router.post('/createStaff', protect, restrictTo('admin'), createNewStaff);
 router.get('/getUsers', protect, restrictTo('superadmin', 'admin'), getUsers);
 router.delete('/:userId', protect, restrictTo('superadmin', 'admin'), deleteUser);
+router.patch('/:userId', protect, restrictTo('superadmin', 'admin'), updateUser);
 
 module.exports = router;

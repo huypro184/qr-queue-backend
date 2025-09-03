@@ -1,4 +1,4 @@
-const {createAdmin, createStaff, getAllUsers, deleteUser: deleteUserService} = require('../services/userService');
+const {createAdmin, createStaff, getAllUsers, deleteUser: deleteUserService, updateUser: updateUserService} = require('../services/userService');
 const { asyncHandler } = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 
@@ -9,7 +9,7 @@ const createNewAdmin = asyncHandler(async (req, res, next) => {
     
     res.status(201).json({
         status: 'success',
-        message: 'User created successfully',
+        message: 'Admin created successfully',
         data: user
     });
 });
@@ -49,9 +49,22 @@ const deleteUser = asyncHandler(async (req, res, next) => {
     });
 });
 
+const updateUser = asyncHandler(async (req, res, next) => {
+    const { userId } = req.params;
+
+    const result = await updateUserService(userId, req.body, req.user);
+
+    res.status(200).json({
+        status: 'success',
+        message: 'User updated successfully',
+        data: result.user
+    });
+});
+
 module.exports = {
     createNewAdmin,
     createNewStaff,
     getUsers,
-    deleteUser
+    deleteUser,
+    updateUser,
 };
