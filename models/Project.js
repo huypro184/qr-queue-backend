@@ -1,31 +1,40 @@
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/database');
+'use strict';
+const { Model } = require('sequelize');
 
-const Project = sequelize.define('Project', {
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true
-  },
-  name: {
-    type: DataTypes.STRING(150),
-    allowNull: false,
-    validate: {
-      notEmpty: true
+module.exports = (sequelize, DataTypes) => {
+  class Project extends Model {
+    static associate(models) {
+      // Define associations here
+      Project.hasMany(models.User, { 
+        foreignKey: 'project_id',
+        as: 'users' 
+      });
     }
-  },
-  description: {
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
-  created_at: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW,
-    field: 'created_at'
   }
-}, {
-  tableName: 'projects',
-  timestamps: false
-});
-
-module.exports = Project;
+  
+  Project.init({
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true
+    },
+    name: {
+      type: DataTypes.STRING(150),
+      allowNull: false
+    },
+    description: {
+      type: DataTypes.TEXT
+    },
+    created_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW
+    }
+  }, {
+    sequelize,
+    modelName: 'Project',
+    tableName: 'projects',
+    timestamps: false
+  });
+  
+  return Project;
+};

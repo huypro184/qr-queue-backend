@@ -43,7 +43,7 @@ const createUserRecord = async (userData) => {
         status: 'active'
     });
 
-    const { password_hash, passwordResetToken, passwordResetExpires, passwordChangedAt, ...userResponse } = newUser.toJSON();
+    const { password_hash, password_reset_token, password_reset_expires, password_changed_at, ...userResponse } = newUser.toJSON();
     return userResponse;
 };
 
@@ -122,7 +122,7 @@ const getAllUsers = async (currentUser, filters = {}) => {
             whereClause.role = 'staff';
         }
 
-        whereClause.user_id = { [Op.not]: currentUser.user_id };
+        whereClause.id = { [Op.not]: currentUser.id };
 
         if (search) {
             whereClause[Op.or] = [
@@ -146,10 +146,12 @@ const getAllUsers = async (currentUser, filters = {}) => {
             order: [['created_at', 'DESC']],
             limit: parseInt(limit),
             offset: parseInt(offset),
-            attributes: { exclude: ['password_hash', 'passwordResetToken', 'passwordResetExpires', 'passwordChangedAt'] }
+            attributes: { exclude: ['password_hash', 'password_reset_token', 'password_reset_expires', 'password_changed_at'] }
         });
 
-        const message = count === 0 ? 'Users not found' : null;
+        const message = count === 0 
+            ? 'No users found' 
+            : `${count} user${count > 1 ? 's' : ''} retrieved successfully`;
 
         return {
             users,
@@ -170,11 +172,11 @@ const getAllUsers = async (currentUser, filters = {}) => {
 
 const deleteUser = async (userId, currentUser) => {
     try {
-        if (parseInt(userId) === currentUser.user_id) {
+        if (parseInt(userId) === currentUser.id) {
             throw new AppError('You cannot delete your own account', 400);
         }
 
-        let whereClause = { user_id: userId };
+        let whereClause = { id: userId };
 
         if (currentUser.role === 'admin') {
             whereClause.project_id = currentUser.project_id;
@@ -183,7 +185,7 @@ const deleteUser = async (userId, currentUser) => {
 
         const userToDelete = await User.findOne({
             where: whereClause,
-            attributes: ['user_id', 'name', 'email', 'role', 'project_id', 'status']
+            attributes: ['id', 'name', 'email', 'role', 'project_id', 'status']
         });
 
         if (!userToDelete) {
@@ -192,13 +194,13 @@ const deleteUser = async (userId, currentUser) => {
 
         await User.update(
             { status: 'inactive' },
-            { where: { user_id: userId } }
+            { where: { id: userId } }
         );
 
         return {
             message: `User ${userToDelete.name} has been deleted successfully`,
             deletedUser: {
-                user_id: userToDelete.user_id,
+                id: userToDelete.id,
                 name: userToDelete.name,
                 email: userToDelete.email,
                 role: userToDelete.role
@@ -215,7 +217,7 @@ const updateUser = async (userId, updateData, currentUser) => {
         const { name, email, phone, role, project_id } = updateData;
 
         let whereClause = {
-            user_id: userId,
+            id: userId,
             status: 'active'
         };
 
@@ -242,7 +244,7 @@ const updateUser = async (userId, updateData, currentUser) => {
             const existingUser = await User.findOne({ 
                 where: { 
                     email: email.toLowerCase().trim(),
-                    user_id: { [Op.not]: userId }
+                    id: { [Op.not]: userId }
                 }
             });
             if (existingUser) {
@@ -254,7 +256,7 @@ const updateUser = async (userId, updateData, currentUser) => {
             const existingUserByPhone = await User.findOne({ 
                 where: { 
                     phone: phone.trim(),
-                    user_id: { [Op.not]: userId }
+                    id: { [Op.not]: userId }
                 }
             });
             if (existingUserByPhone) {
@@ -290,14 +292,13 @@ const updateUser = async (userId, updateData, currentUser) => {
             }
         }
 
-        dataToUpdate.updated_at = new Date();
 
         await User.update(dataToUpdate, {
-            where: { user_id: userId }
+            where: { id: userId }
         });
 
         const updatedUser = await User.findOne({
-            where: { user_id: userId },
+            where: { id: userId },
             include: [
                 {
                     model: Project,
@@ -306,7 +307,7 @@ const updateUser = async (userId, updateData, currentUser) => {
                     required: false
                 }
             ],
-            attributes: { exclude: ['password_hash', 'passwordResetToken', 'passwordResetExpires', 'passwordChangedAt'] }
+            attributes: { exclude: ['password_hash', 'password_reset_token', 'password_reset_expires', 'password_changed_at'] }
         });
 
         return {

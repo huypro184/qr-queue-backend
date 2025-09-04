@@ -1,4 +1,5 @@
-const User = require('../models/User');
+const db = require('../models');
+const { User } = db;
 const bcrypt = require('bcrypt');
 const AppError = require('../utils/AppError');
 const jwt = require('jsonwebtoken');
@@ -42,7 +43,10 @@ const loginUser = async (loginData) => {
     throw new AppError('Please provide email and password', 400);
   }
 
-  const user = await User.scope('withPassword').findOne({ where: { email } });
+  const user = await User.findOne({ 
+    where: { email },
+    attributes: { include: ['password_hash'] }
+  });
 
   if (!user) {
     throw new AppError('Invalid email or password', 401);
@@ -53,7 +57,7 @@ const loginUser = async (loginData) => {
     throw new AppError('Invalid email or password', 401);
   }
 
-  const token = jwt.sign({ id: user.user_id, email: user.email, role: user.role }, process.env.JWT_SECRET, {
+  const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN
   });
 
@@ -134,7 +138,7 @@ const resetPasswordUser = async (token, newPassword) => {
   await user.save();
 
   const newToken = jwt.sign(
-    { id: user.user_id, email: user.email, role: user.role },
+    { id: user.id, email: user.email, role: user.role },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN }
   );

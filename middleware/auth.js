@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const { promisify } = require('util');
 const { asyncHandler } = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
-const User = require('../models/User');
+const { User } = require('../models');
 
 const protect = asyncHandler(async (req, res, next) => {
     let token;
