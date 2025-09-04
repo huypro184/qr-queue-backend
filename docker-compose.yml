@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  qr-queue-backend:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      # Database
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=qrqueue
+      - DB_USER=postgres
+      - DB_PASSWORD=giahuy123
+      - DB_DIALECT=postgres
+      
+      # JWT
+      - JWT_SECRET=07b70891d01cb4d1fce3c84b4d7844ba0e5e4f25b383660076ca52dde1c4ecc3517f103d8208d1db657613db74f2da70cdd43c3597c80b73e3a6b8ad61c00d83
+      - JWT_EXPIRES_IN=2d
+      - JWT_COOKIE_EXPIRES_IN=2
+      - NODE_ENV=development
+      
+      # Email
+      - EMAIL_USERNAME=47b8ba8dd0ea8c
+      - EMAIL_PASSWORD=5ff8dacbf8d0fa
+      - EMAIL_HOST=sandbox.smtp.mailtrap.io
+      - EMAIL_PORT=2525
+      - EMAIL_FROM=QR Queue <noreply@qrqueue.com>
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=qrqueue
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=giahuy123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

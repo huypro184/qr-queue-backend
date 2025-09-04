@@ -1,5 +1,5 @@
-const Project = require('../models/Project');
-const User = require('../models/User');
+const db = require('../models');
+const { User, Project, Service } = db;
 const AppError = require('../utils/AppError');
 
 const createProject = async (data, currentUser) => {
@@ -22,6 +22,13 @@ const createProject = async (data, currentUser) => {
             name: name.trim(),
             description: description ? description.trim() : null
         });
+
+        if (currentUser.role === 'admin') {
+            await User.update(
+                { project_id: newProject.id },
+                { where: { id: currentUser.id } }
+            );
+        }
 
         return {
             id: newProject.id,

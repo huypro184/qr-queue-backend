@@ -3,10 +3,9 @@ const cors = require('cors');
 require('dotenv').config();
 
 const { specs, swaggerUi } = require('./config/swagger');
-require('./models');
 
-// Import database connection
-const { connectDB } = require('./config/database');
+const { User, Project, sequelize } = require('./models');
+
 
 // Import routes
 const userRoutes = require('./routes/userRoutes');
@@ -18,7 +17,23 @@ const errorHandler = require('./middleware/errorHandler');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Connect to MongoDB
+const connectDB = async () => {
+  try {
+    await sequelize.authenticate();
+    console.log('✅ PostgreSQL Connected');
+    console.log('Database Name:', sequelize.config.database);
+
+    const tables = await sequelize.query("SELECT tablename FROM pg_tables WHERE schemaname = 'public'", 
+      { type: sequelize.QueryTypes.SELECT });
+    console.log('📋 Available tables:', tables);
+
+  } catch (error) {
+    console.error('Error connecting to PostgreSQL:', error.message);
+    process.exit(1);
+  }
+};
+
+// Connect to PostgreSQL
 connectDB();
 
 // Middleware

@@ -1,63 +1,43 @@
-const User = require('./User');
-const Project = require('./Project');
-const Service = require('./Service');
-const Line = require('./Line');
-const Ticket = require('./Ticket');
+'use strict';
 
-User.belongsTo(Project, { 
-  foreignKey: 'project_id', 
-  as: 'project' 
-});
-Project.hasMany(User, { 
-  foreignKey: 'project_id', 
-  as: 'users',
-  onDelete: 'SET NULL'
-});
+const fs = require('fs');
+const path = require('path');
+const Sequelize = require('sequelize');
+const process = require('process');
+const basename = path.basename(__filename);
+const env = process.env.NODE_ENV || 'development';
+const config = require(__dirname + '/../config/config.js')[env];
+const db = {};
 
-Project.hasMany(Service, { 
-  foreignKey: 'project_id', 
-  as: 'services',
-  onDelete: 'CASCADE'
-});
-Service.belongsTo(Project, { 
-  foreignKey: 'project_id', 
-  as: 'project' 
-});
+let sequelize;
+if (config.use_env_variable) {
+  sequelize = new Sequelize(process.env[config.use_env_variable], config);
+} else {
+  sequelize = new Sequelize(config.database, config.username, config.password, config);
+}
 
-Service.hasMany(Line, { 
-  foreignKey: 'service_id', 
-  as: 'lines',
-  onDelete: 'CASCADE'
-});
-Line.belongsTo(Service, { 
-  foreignKey: 'service_id', 
-  as: 'service' 
-});
+fs
+  .readdirSync(__dirname)
+  .filter(file => {
+    return (
+      file.indexOf('.') !== 0 &&
+      file !== basename &&
+      file.slice(-3) === '.js' &&
+      file.indexOf('.test.js') === -1
+    );
+  })
+  .forEach(file => {
+    const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
+    db[model.name] = model;
+  });
 
-Line.hasMany(Ticket, { 
-  foreignKey: 'line_id', 
-  as: 'tickets',
-  onDelete: 'CASCADE'
-});
-Ticket.belongsTo(Line, { 
-  foreignKey: 'line_id', 
-  as: 'line' 
+Object.keys(db).forEach(modelName => {
+  if (db[modelName].associate) {
+    db[modelName].associate(db);
+  }
 });
 
-User.hasMany(Ticket, { 
-  foreignKey: 'user_id', 
-  as: 'tickets',
-  onDelete: 'CASCADE'
-});
-Ticket.belongsTo(User, { 
-  foreignKey: 'user_id', 
-  as: 'user' 
-});
+db.sequelize = sequelize;
+db.Sequelize = Sequelize;
 
-module.exports = {
-  User,
-  Project,
-  Service,
-  Line,
-  Ticket
-};
+module.exports = db;
