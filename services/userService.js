@@ -47,7 +47,7 @@ const createUserRecord = async (userData) => {
     return userResponse;
 };
 
-const createAdmin = async (data) => {
+const createAdmin = async (data, currentUser) => {
     try {
         const { email, password, name, phone, project_id } = data;
 
