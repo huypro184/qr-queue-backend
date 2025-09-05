@@ -55,3 +55,6 @@ build/
 # Temporary files
 *.tmp
 *.temp
+
+# Nginx config
+nginx.conf
