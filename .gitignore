@@ -52,5 +52,3 @@ build/
 *.tmp
 *.temp
 
-# Nginx config
-nginx.conf
