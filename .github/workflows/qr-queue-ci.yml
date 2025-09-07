@@ -46,6 +46,8 @@ jobs:
           INSTANCE_ID=${{ secrets.INSTANCE_ID }}
           aws ec2 start-instances --instance-ids $INSTANCE_ID
           aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+          echo "Waiting 30s for EC2 SSH to be ready..."
+          sleep 30
 
       # 5️⃣ SSH deploy
       - name: SSH Deploy to EC2
@@ -56,9 +58,12 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/${{ secrets.EC2_USER }}/qr-queue
+            echo "Pulling Docker image: $IMAGE_TAG"
             docker pull ${{ secrets.DOCKER_USERNAME }}/qrqueue:${IMAGE_TAG}
+            echo "Stopping old container if exists..."
             docker stop qrqueue || true
             docker rm qrqueue || true
+            echo "Running new container..."
             docker run -d \
               --name qrqueue \
               -p 8080:8080 \
