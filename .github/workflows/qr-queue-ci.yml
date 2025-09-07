@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout the repository
+      # 1️⃣ Checkout code
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -23,24 +23,13 @@ jobs:
       # 3️⃣ Build Docker image
       - name: Build Docker image
         run: |
-          # Clean up dangling images and unused containers before building
-          # This prevents disk from filling up on EC2 after multiple deployments
-          docker system prune -af || true
-
-          # Set image tag based on the first 7 characters of the commit SHA
           IMAGE_TAG=${GITHUB_SHA::7}
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
-
-          # Export Docker username as environment variable
           echo "DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> $GITHUB_ENV
-
-          # Build the Docker image
           docker build -t ${{ secrets.DOCKER_USERNAME }}/qrqueue:$IMAGE_TAG .
-
-          # Tag the image as latest
           docker tag ${{ secrets.DOCKER_USERNAME }}/qrqueue:$IMAGE_TAG ${{ secrets.DOCKER_USERNAME }}/qrqueue:latest
 
-      # 4️⃣ Push Docker images to Docker Hub
+      # 4️⃣ Push Docker images
       - name: Push Docker images
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/qrqueue:$IMAGE_TAG
@@ -62,10 +51,6 @@ jobs:
           aws ec2 wait instance-running --instance-ids $INSTANCE_ID
           echo "Waiting for SSH to be ready..."
 
-          # Write SSH key to a temporary file
-          echo "${{ secrets.EC2_SSH_KEY }}" > /tmp/ec2_key.pem
-          chmod 600 /tmp/ec2_key.pem
-
           # Retry SSH up to 10 times
           for i in {1..10}; do
             ssh -o StrictHostKeyChecking=no -i /tmp/ec2_key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "echo SSH ready" && break
@@ -82,7 +67,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           envs: IMAGE_TAG,DOCKER_USERNAME
           script: |
-            # Retry Docker readiness up to 10 times
+            # Retry Docker readiness
             for i in {1..10}; do
               docker --version && break
               echo "Waiting for Docker SSH ready..."
@@ -91,19 +76,15 @@ jobs:
 
             cd /home/${{ secrets.EC2_USER }}/qr-queue
 
-            # Pull the latest Docker image
             echo "Pulling Docker image: $IMAGE_TAG"
             docker pull ${DOCKER_USERNAME}/qrqueue:${IMAGE_TAG}
 
-            # Remove the old container if it exists
             echo "Removing old container..."
             docker rm -f qrqueue || true
 
-            # Prune unused Docker images to save disk space
             echo "Pruning old images..."
             docker image prune -f
 
-            # Run containers via Docker Compose
             echo "Running new container via Docker Compose..."
             docker-compose down
             docker-compose up -d
