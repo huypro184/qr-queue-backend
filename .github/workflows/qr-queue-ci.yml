@@ -65,28 +65,23 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: IMAGE_TAG,DOCKER_USERNAME
+          envs: IMAGE_TAG,DOCKER_USERNAME,DOCKER_PASSWORD
           script: |
-            # Retry Docker readiness
-            for i in {1..10}; do
-              docker --version && break
-              echo "Waiting for Docker SSH ready..."
-              sleep 5
-            done
+            echo "Logging in to Docker Hub..."
+            docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
 
             cd /home/${{ secrets.EC2_USER }}/qr-queue
+
+            echo "Pruning dangling images..."
+            docker image prune -f
 
             echo "Pulling Docker image: $IMAGE_TAG"
             docker pull ${DOCKER_USERNAME}/qrqueue:${IMAGE_TAG}
 
-            echo "Removing old container..."
-            docker rm -f qrqueue || true
-
-            echo "Pruning old images..."
-            docker image prune -f
-
-            echo "Running new container via Docker Compose..."
+            echo "Stopping and removing old containers (if any)..."
             docker-compose down
+
+            echo "Starting new containers via Docker Compose..."
             docker-compose up -d
 
       # 8️⃣ Stop EC2 instance
@@ -94,4 +89,4 @@ jobs:
         run: |
           INSTANCE_ID=${{ secrets.INSTANCE_ID }}
           aws ec2 stop-instances --instance-ids $INSTANCE_ID
-          aws ec2 wait instance-stopped --instance-ids $INSTANCE_ID
+          aws ec2 wait instance-stopped --instance
