@@ -1,13 +1,8 @@
 const { createProject, getAllProjects, updateProject, deleteProject } = require('../services/projectService');
 const { asyncHandler } = require('../utils/asyncHandler');
-const AppError = require('../utils/AppError');
 
 const createNewProject = asyncHandler(async (req, res, next) => {
     const { name, description } = req.body;
-
-    if (!name) {
-        return next(new AppError('Please provide project name', 400));
-    }
 
     const project = await createProject(req.body, req.user);
     

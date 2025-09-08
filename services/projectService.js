@@ -57,9 +57,9 @@ const getAllProjects = async (currentUser, filters = {}) => {
             where: whereClause,
             include: [
                 {
-                    model: User,
-                    as: 'users',
-                    attributes: ['id', 'name', 'role'],
+                    model: Service,
+                    as: 'services',
+                    attributes: ['id', 'name', 'description'],
                     required: false
                 }
             ],
@@ -173,7 +173,6 @@ const deleteProject = async (projectId, currentUser) => {
             throw new AppError('Cannot delete project that has services. Please remove all services first.', 400);
         }
 
-        // Xóa project
         await Project.destroy({
             where: { id: projectId }
         });

@@ -4,13 +4,14 @@ require('dotenv').config();
 
 const { specs, swaggerUi } = require('./config/swagger');
 
-const { User, Project, sequelize } = require('./models');
+const { User, Project, Service, sequelize } = require('./models');
 
 
 // Import routes
 const userRoutes = require('./routes/userRoutes');
 const authRoutes = require('./routes/authRoutes');
 const projectRoutes = require('./routes/projectRoutes');
+const serviceRoutes = require('./routes/serviceRoutes');
 
 const errorHandler = require('./middleware/errorHandler');
 
@@ -56,6 +57,7 @@ app.get('/', (req, res) => {
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/services', serviceRoutes);
 
 app.all('*', (req, res) => {
   throw new Error('Route not found');

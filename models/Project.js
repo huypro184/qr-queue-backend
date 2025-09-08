@@ -8,6 +8,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'project_id',
         as: 'users' 
       });
+      Project.hasMany(models.Service, {
+      foreignKey: 'project_id',
+      as: 'services'
+    });
     }
   }
   
