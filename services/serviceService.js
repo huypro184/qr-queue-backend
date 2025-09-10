@@ -1,4 +1,4 @@
-const { Service, Project } = require('../models');
+const { Service, Project, Line } = require('../models');
 const AppError = require('../utils/AppError');
 const { Op } = require('sequelize');
 
@@ -61,7 +61,12 @@ const getServices = async (currentUser, filters = {}) => {
             where: whereClause,
             order: [['created_at', 'DESC']],
             limit: parseInt(limit),
-            offset: parseInt(offset)
+            offset: parseInt(offset),
+            include: [{
+                model: Line,
+                as: 'lines',
+                attributes: ['id', 'name']
+            }]
         });
 
         const message = count === 0 ? 'No services found' : `${count} service${count > 1 ? 's' : ''} retrieved successfully`;

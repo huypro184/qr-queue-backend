@@ -8,6 +8,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'project_id',
         as: 'project'
       });
+      Service.hasMany(models.Line, {
+        foreignKey: 'service_id',
+        as: 'lines'
+      });
     }
   }
 
@@ -32,6 +36,9 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.TEXT
     },
     average_service_time: {
+      type: DataTypes.INTEGER
+    },
+    historical_avg_wait: {
       type: DataTypes.INTEGER
     },
     created_at: {

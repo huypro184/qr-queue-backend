@@ -12,6 +12,7 @@ const userRoutes = require('./routes/userRoutes');
 const authRoutes = require('./routes/authRoutes');
 const projectRoutes = require('./routes/projectRoutes');
 const serviceRoutes = require('./routes/serviceRoutes');
+const lineRoutes = require('./routes/lineRoutes');
 
 const errorHandler = require('./middleware/errorHandler');
 
@@ -58,6 +59,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/services', serviceRoutes);
+app.use('/api/lines', lineRoutes);
 
 app.all('*', (req, res) => {
   throw new Error('Route not found');

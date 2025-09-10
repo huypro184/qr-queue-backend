@@ -23,9 +23,8 @@ services:
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin
-    environment:
-      - PGADMIN_DEFAULT_EMAIL=giahuy@admin.com
-      - PGADMIN_DEFAULT_PASSWORD=giahuy123
+    env_file:
+      - .env
     ports:
       - "8000:80"
     depends_on:
