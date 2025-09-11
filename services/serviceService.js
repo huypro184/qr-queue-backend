@@ -43,7 +43,6 @@ const getServices = async (currentUser, filters = {}) => {
 
         const projectId = currentUser.project_id;
 
-
         let whereClause = {
             project_id: projectId
         };

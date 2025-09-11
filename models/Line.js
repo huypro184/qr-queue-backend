@@ -6,6 +6,7 @@ module.exports = (sequelize, DataTypes) => {
     static associate(models) {
       Line.belongsTo(models.Service, {
         foreignKey: 'service_id',
+        as: 'service',
         onDelete: 'CASCADE'
       });
     }
