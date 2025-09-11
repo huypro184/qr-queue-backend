@@ -122,8 +122,31 @@ const updateLine = async (lineId, data, currentUser) => {
     }
 };
 
+const deleteLine = async (lineId, currentUser) => {
+    try {
+        const line = await Line.findOne({
+            where: { id: lineId },
+            include: [{
+                model: Service,
+                as: 'service',
+                where: { project_id: currentUser.project_id }
+            }]
+        });
+        if (!line) {
+            throw new AppError('Line not found', 404);
+        }
+
+        await line.destroy();
+
+        return { id: lineId, name: line.name};
+    } catch (error) {
+        throw error;
+    }
+};
+
 module.exports = {
     createLine,
     getLines,
-    updateLine
+    updateLine,
+    deleteLine
 };

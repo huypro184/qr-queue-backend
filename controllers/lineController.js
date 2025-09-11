@@ -1,4 +1,4 @@
-const { createLine, getLines, updateLine } = require('../services/lineService');
+const { createLine, getLines, updateLine, deleteLine } = require('../services/lineService');
 const { asyncHandler } = require('../utils/asyncHandler');
 
 const createNewLine = asyncHandler(async (req, res, next) => {
@@ -39,8 +39,18 @@ const updateLineById = asyncHandler(async (req, res, next) => {
     });
 });
 
+const deleteLineById = asyncHandler(async (req, res, next) => {
+    const result = await deleteLine(req.params.id, req.user);
+    res.status(200).json({
+        status: 'success',
+        message: 'Line deleted successfully',
+        data: result
+    });
+});
+
 module.exports = {
     createNewLine,
     getAllLines,
-    updateLineById
+    updateLineById,
+    deleteLineById
 };

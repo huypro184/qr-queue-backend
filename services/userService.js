@@ -319,10 +319,35 @@ const updateUser = async (userId, updateData, currentUser) => {
     }
 };
 
+const getMe = async (currentUser) => {
+    try {
+        const user = await User.findOne({
+            where: { id: currentUser.id },
+            include: [
+                {
+                    model: Project,
+                    as: 'project',
+                    attributes: ['name', 'description'],
+                    required: false
+                }
+            ],
+            attributes: { exclude: ['password_hash', 'password_reset_token', 'password_reset_expires', 'password_changed_at'] }
+        });
+
+        return {
+            user
+        };
+
+    } catch (error) {
+        throw error;
+    }
+};
+
 module.exports = {
     createAdmin,
     createStaff,
     getAllUsers,
+    getMe,
     deleteUser,
     updateUser
 };

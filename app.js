@@ -13,6 +13,7 @@ const authRoutes = require('./routes/authRoutes');
 const projectRoutes = require('./routes/projectRoutes');
 const serviceRoutes = require('./routes/serviceRoutes');
 const lineRoutes = require('./routes/lineRoutes');
+const qrRoutes = require('./routes/qrRoutes');
 
 const errorHandler = require('./middleware/errorHandler');
 
@@ -60,6 +61,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/lines', lineRoutes);
+app.use('/api/qr', qrRoutes);
 
 app.all('*', (req, res) => {
   throw new Error('Route not found');

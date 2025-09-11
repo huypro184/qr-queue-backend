@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test QR Code Display</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        #qr { margin-top: 20px; }
+        input, button { padding: 8px; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <h2>Test QR Code for Project</h2>
+    <label for="projectId">Project ID:</label>
+    <input type="number" id="projectId" value="1" min="1" />
+    <button onclick="fetchQRCode()">Get QR Code</button>
+    <div id="qr"></div>
+    <script>
+        async function fetchQRCode() {
+            const projectId = document.getElementById('projectId').value;
+            const qrDiv = document.getElementById('qr');
+            qrDiv.innerHTML = 'Loading...';
+            try {
+                const res = await fetch(`http://localhost:3000/api/qr/${projectId}`);
+                const data = await res.json();
+                if (data.status === 'success' && data.data.qr_code) {
+                    qrDiv.innerHTML = `
+                        <h3>QR Code for Project ${projectId}</h3>
+                        <img src="${data.data.qr_code}" alt="QR Code" />
+                        <p><b>Project Name:</b> ${data.data.project.name}</p>
+                        <p><b>Description:</b> ${data.data.project.description}</p>
+                    `;
+                } else {
+                    qrDiv.innerHTML = `<span style="color:red;">Error: ${data.error || 'No QR code found.'}</span>`;
+                }
+            } catch (err) {
+                qrDiv.innerHTML = `<span style="color:red;">Fetch error: ${err.message}</span>`;
+            }
+        }
+    </script>
+</body>
