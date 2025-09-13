@@ -21,6 +21,12 @@ module.exports = (sequelize, DataTypes) => {
       autoIncrement: true,
       primaryKey: true
     },
+    slug: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      unique: true,
+      defaultValue: DataTypes.UUIDV4
+    },
     name: {
       type: DataTypes.STRING(150),
       allowNull: false
@@ -28,6 +34,10 @@ module.exports = (sequelize, DataTypes) => {
     description: {
       type: DataTypes.TEXT
     },
+    qr_code: {
+        type: DataTypes.TEXT,
+        allowNull: true
+      },
     created_at: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW

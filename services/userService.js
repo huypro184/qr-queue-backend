@@ -327,7 +327,7 @@ const getMe = async (currentUser) => {
                 {
                     model: Project,
                     as: 'project',
-                    attributes: ['name', 'description'],
+                    attributes: ['name', 'description', 'qr_code', 'slug'],
                     required: false
                 }
             ],

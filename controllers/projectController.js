@@ -1,4 +1,4 @@
-const { createProject, getAllProjects, updateProject, deleteProject } = require('../services/projectService');
+const { createProject, getAllProjects, updateProject, deleteProject, getServicefromSlug } = require('../services/projectService');
 const { asyncHandler } = require('../utils/asyncHandler');
 
 const createNewProject = asyncHandler(async (req, res, next) => {
@@ -48,9 +48,22 @@ const deleteProjectById = asyncHandler(async (req, res, next) => {
     });
 });
 
+const getService = asyncHandler(async (req, res, next) => {
+    const { slug } = req.params;
+
+    const service = await getServicefromSlug(slug);
+
+    res.status(200).json({
+        status: 'success',
+        message: 'Service retrieved successfully',
+        data: service
+    });
+});
+
 module.exports = {
     createNewProject,
     getProjects,
     updateProjectById,
-    deleteProjectById
+    deleteProjectById,
+    getService
 };

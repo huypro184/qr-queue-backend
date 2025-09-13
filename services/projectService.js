@@ -1,6 +1,9 @@
 const { User, Project, Service } = require('../models');
+const { get } = require('../routes/userRoutes');
 const AppError = require('../utils/AppError');
-const { Op } = require('sequelize');
+const { generateProjectQRCode } = require('../utils/qrcode');
+const { Op, where } = require('sequelize');
+const { v4: uuidv4 } = require("uuid");
 
 const createProject = async (data, currentUser) => {
     try {
@@ -21,6 +24,14 @@ const createProject = async (data, currentUser) => {
         const newProject = await Project.create({
             name: name.trim(),
             description: description ? description.trim() : null
+        });
+
+        const slug = uuidv4();
+        const qrCodeDataUrl = await generateProjectQRCode(slug);
+
+        await newProject.update({
+            qr_code: qrCodeDataUrl,
+            slug: slug
         });
 
         return {
@@ -65,7 +76,8 @@ const getAllProjects = async (currentUser, filters = {}) => {
             ],
             order: [['created_at', 'DESC']],
             limit: parseInt(limit),
-            offset: parseInt(offset)
+            offset: parseInt(offset),
+            attributes: { exclude: ['qr_code'] }
         });
 
 
@@ -189,10 +201,31 @@ const deleteProject = async (projectId, currentUser) => {
     }
 };
 
+const getServicefromSlug = async (slug) => {
+    try {
+        const service = await Service.findAll({
+            include: [{
+                model: Project,
+                as: 'project',
+                attributes: [],
+                where: {
+                    slug: {
+                        [Op.eq]: slug
+                    }
+                }
+            }],
+            attributes: ['id', 'name', 'description']
+        });
+        return service;
+    } catch (error) {
+        throw error;
+    }
+};
 
 module.exports = {
     createProject,
     getAllProjects,
     updateProject,
-    deleteProject
+    deleteProject,
+    getServicefromSlug
 };
