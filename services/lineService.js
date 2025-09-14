@@ -1,6 +1,6 @@
 const { Line, Service } = require('../models');
 const AppError = require('../utils/AppError');
-const { Op } = require('sequelize');
+const { Op, where } = require('sequelize');
 
 const createLine = async (data, currentUser) => {
     try {
@@ -38,7 +38,7 @@ const createLine = async (data, currentUser) => {
     }
 };
 
-const getLines = async ( filters = {}) => {
+const getLines = async (currentUser, filters = {}) => {
     try {
         const { service_id, search, page = 1, limit = 10 } = filters;
 
@@ -58,6 +58,12 @@ const getLines = async ( filters = {}) => {
 
         const { count, rows: lines } = await Line.findAndCountAll({
             where: whereClause,
+            include: [{
+                model: Service,
+                as: 'service',
+                where: { project_id: currentUser.project_id },
+                attributes: []
+            }],
             order: [['created_at', 'DESC']],
             limit: parseInt(limit),
             offset: parseInt(offset)

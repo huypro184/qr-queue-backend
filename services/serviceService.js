@@ -47,6 +47,8 @@ const getServices = async (currentUser, filters = {}) => {
             project_id: projectId
         };
 
+        console.log(whereClause);
+
         if (search) {
             whereClause[Op.or] = [
                 { name: { [Op.iLike]: `%${search}%` } },
@@ -61,10 +63,11 @@ const getServices = async (currentUser, filters = {}) => {
             order: [['created_at', 'DESC']],
             limit: parseInt(limit),
             offset: parseInt(offset),
+            attributes: ['id', 'name', 'description', 'average_service_time', 'created_at'],
             include: [{
-                model: Line,
-                as: 'lines',
-                attributes: ['id', 'name']
+            model: Line,
+            as: 'lines',
+            attributes: ['id', 'name', 'total', 'created_at']
             }]
         });
 
