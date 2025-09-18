@@ -4,9 +4,9 @@ const { protect, restrictTo } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.post('/', protect, restrictTo('admin'), createNewLine);
-router.get('/', protect, restrictTo('admin'), getAllLines);
-router.patch('/:id', protect, restrictTo('admin'), updateLineById);
-router.delete('/:id', protect, restrictTo('admin'), deleteLineById);
+router.post('/', protect, restrictTo('admin', 'staff'), createNewLine);
+router.get('/', protect, restrictTo('admin', 'staff'), getAllLines);
+router.patch('/:id', protect, restrictTo('admin', 'staff'), updateLineById);
+router.delete('/:id', protect, restrictTo('admin', 'staff'), deleteLineById);
 
 module.exports = router;

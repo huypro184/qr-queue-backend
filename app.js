@@ -13,12 +13,12 @@ const authRoutes = require('./routes/authRoutes');
 const projectRoutes = require('./routes/projectRoutes');
 const serviceRoutes = require('./routes/serviceRoutes');
 const lineRoutes = require('./routes/lineRoutes');
-const ticketRoutes = require('./routes/ticket.Routes');
+const ticketRoutes = require('./routes/ticketRoutes');
 
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 
 const connectDB = async () => {
   try {
@@ -54,6 +54,9 @@ app.get('/', (req, res) => {
     documentation: `http://localhost:${PORT}/api-docs`
   });
 });
+
+console.log('Server timezone:', Intl.DateTimeFormat().resolvedOptions().timeZone);
+console.log('Current time:', new Date());
 
 // API Routes
 app.use('/api/users', userRoutes);

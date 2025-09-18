@@ -1,4 +1,4 @@
-const { createTicket, getTickets } = require('../services/ticketService');
+const { createTicket, getTickets, callNextTicket, finishTicket, cancelTicket } = require('../services/ticketService');
 const { asyncHandler } = require('../utils/asyncHandler');
 
 const createTicketController = asyncHandler(async (req, res, next) => {
@@ -18,7 +18,37 @@ const getTicketsController = asyncHandler(async (req, res, next) => {
     });
 });
 
+const callNextTicketController = asyncHandler(async (req, res, next) => {
+    const { lineId } = req.params;
+    const ticket = await callNextTicket(lineId, req.user);
+    res.status(200).json({
+        status: 'success',
+        data: ticket
+    });
+});
+
+const finishTicketController = asyncHandler(async (req, res, next) => {
+    const { ticketId } = req.params;
+    const ticket = await finishTicket(ticketId, req.user);
+    res.status(200).json({
+        status: 'success',
+        data: ticket
+    });
+});
+
+const cancelTicketController = asyncHandler(async (req, res, next) => {
+    const { ticketId } = req.params;
+    const ticket = await cancelTicket(ticketId, req.user);
+    res.status(200).json({
+        status: 'success',
+        data: ticket
+    });
+});
+
 module.exports = {
     createTicketController,
-    getTicketsController
+    getTicketsController,
+    callNextTicketController,
+    finishTicketController,
+    cancelTicketController
 };

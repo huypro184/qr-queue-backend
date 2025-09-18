@@ -4,7 +4,7 @@ const { Op } = require('sequelize');
 
 const createService = async (data, currentUser) => {
     try {
-        const { name, description, average_service_time } = data;
+        const { name, description } = data;
 
         if (!name || name.trim() === '') {
             throw new AppError('Service name is required', 400);
@@ -15,6 +15,7 @@ const createService = async (data, currentUser) => {
         const existed = await Service.findOne({
             where: { name, project_id: projectId }
         });
+        
         if (existed) {
             throw new AppError('Service name already exists in this project', 409);
         }
@@ -24,14 +25,19 @@ const createService = async (data, currentUser) => {
             throw new AppError('Project not found', 404);
         }
 
+        const average_service_time = Math.floor(Math.random() * (15 - 5 + 1)) + 5;
+        const historical_avg_wait = Math.floor(Math.random() * (20 - 1 + 1)) + 1;
+
         const newService = await Service.create({
             name,
             description,
+            project_id: projectId,
             average_service_time,
-            project_id: projectId
+            historical_avg_wait
         });
 
-        return newService;
+        const { average_service_time: avgServiceTime, historical_avg_wait: histAvgWait, ...serviceData } = newService.toJSON();
+        return serviceData;
     } catch (error) {
         throw error;
     }
@@ -63,7 +69,7 @@ const getServices = async (currentUser, filters = {}) => {
             order: [['created_at', 'DESC']],
             limit: parseInt(limit),
             offset: parseInt(offset),
-            attributes: ['id', 'name', 'description', 'average_service_time', 'created_at'],
+            attributes: ['id', 'name', 'description', 'created_at'],
             include: [{
             model: Line,
             as: 'lines',

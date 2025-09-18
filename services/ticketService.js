@@ -56,7 +56,7 @@ const createTicket = async (data, currentUser) => {
 
 const getTickets = async (currentUser, filters = {}) => {
     try {
-        const { line_id, status, page = 1, limit = 10 } = filters;
+        const { line_id, status, search,page = 1, limit = 10 } = filters;
         let whereClause = {};
 
         if (line_id) {
@@ -65,6 +65,12 @@ const getTickets = async (currentUser, filters = {}) => {
 
         if (status) {
             whereClause.status = status;
+        }
+
+        if (search) {
+            whereClause[Op.and] = [
+                { name: { [Op.iLike]: `%${search}%` } }
+            ];
         }
 
         const offset = (page - 1) * limit;
@@ -96,7 +102,84 @@ const getTickets = async (currentUser, filters = {}) => {
     }
 };
 
+const callNextTicket = async (lineId, currentUser) => {
+    try {
+        const nextTicket = await Ticket.findOne({
+            where: {
+                line_id: lineId,
+                status: 'waiting'
+            },
+            order: [['joined_at', 'ASC']]
+        });
+
+        if (!nextTicket) {
+            throw new AppError('No waiting ticket found for this line', 404);
+        }
+
+        nextTicket.status = 'serving';
+        nextTicket.served_at = new Date();
+        await nextTicket.save();
+
+        const line = await Line.findByPk(lineId);
+        if (line && line.total > 0) {
+            await line.decrement('total');
+        }
+
+        return nextTicket;
+    } catch (error) {
+        throw error;
+    }
+};
+
+const finishTicket = async (ticketId, currentUser) => {
+    try {
+        const ticket = await Ticket.findByPk(ticketId);
+        if (!ticket) {
+            throw new AppError('Ticket not found', 404);
+        }
+        if (ticket.status !== 'serving') {
+            throw new AppError('Ticket is not being served', 400);
+        }
+
+        ticket.status = 'done';
+        ticket.finished_at = new Date();
+        await ticket.save();
+
+        const serviceTime = ticket.finished_at - ticket.served_at;
+        const serviceTimeMinutes = Math.round(serviceTime / 60000 * 100) / 100;
+
+        return {
+            ticket,
+            service_time_ms: serviceTimeMinutes
+        };
+    } catch (error) {
+        throw error;
+    }
+};
+
+const cancelTicket = async (ticketId, currentUser) => {
+    try {
+        const ticket = await Ticket.findByPk(ticketId);
+        if (!ticket) {
+            throw new AppError('Ticket not found', 404);
+        }
+        if (ticket.status !== 'waiting') {
+            throw new AppError('Ticket is not waiting', 400);
+        }
+
+        ticket.status = 'cancelled';
+        await ticket.save();
+
+        return ticket;
+    } catch (error) {
+        throw error;
+    }
+};
+
 module.exports = {
     createTicket,
-    getTickets
+    getTickets,
+    callNextTicket,
+    finishTicket,
+    cancelTicket
 };
