@@ -7,7 +7,7 @@ const {
 const { asyncHandler } = require('../utils/asyncHandler');
 
 const getCookieOptions = () => {
-    const expiresIn = parseInt(process.env.JWT_COOKIE_EXPIRES_IN) || 7;
+    const expiresIn = parseInt(process.env.JWT_COOKIE_EXPIRES_IN);
     
     return {
         httpOnly: true,

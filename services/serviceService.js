@@ -1,6 +1,7 @@
 const { Service, Project, Line } = require('../models');
 const AppError = require('../utils/AppError');
 const { Op } = require('sequelize');
+const redisClient = require('../config/redisClient');
 
 const createService = async (data, currentUser) => {
     try {
@@ -36,6 +37,9 @@ const createService = async (data, currentUser) => {
             historical_avg_wait
         });
 
+        const keys = await redisClient.keys(`services:${projectId}:*`);
+        if (keys.length > 0) await redisClient.del(keys);
+
         const { average_service_time: avgServiceTime, historical_avg_wait: histAvgWait, ...serviceData } = newService.toJSON();
         return serviceData;
     } catch (error) {
@@ -48,6 +52,12 @@ const getServices = async (currentUser, filters = {}) => {
         const { search, page = 1, limit = 10 } = filters;
 
         const projectId = currentUser.project_id;
+
+        const cacheKey = `services:${projectId}:${JSON.stringify(filters)}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+            return JSON.parse(cached);
+        }
 
         let whereClause = {
             project_id: projectId
@@ -79,7 +89,7 @@ const getServices = async (currentUser, filters = {}) => {
 
         const message = count === 0 ? 'No services found' : `${count} service${count > 1 ? 's' : ''} retrieved successfully`;
 
-        return {
+        const result = {
             services,
             message,
             pagination: {
@@ -91,6 +101,10 @@ const getServices = async (currentUser, filters = {}) => {
                 hasPrev: page > 1
             }
         };
+
+        await redisClient.set(cacheKey, JSON.stringify(result), { EX: 300 });
+
+        return result;
     } catch (error) {
         throw error;
     }
@@ -123,6 +137,9 @@ const updateService = async (serviceId, data, currentUser) => {
 
         await service.save();
 
+        const keys = await redisClient.keys(`services:${projectId}:*`);
+        if (keys.length > 0) await redisClient.del(keys);
+
         return service;
     } catch (error) {
         throw error;
@@ -141,6 +158,9 @@ const deleteService = async (serviceId, currentUser) => {
         }
 
         await service.destroy();
+
+        const keys = await redisClient.keys(`services:${projectId}:*`);
+        if (keys.length > 0) await redisClient.del(keys);
 
         return { id: serviceId, name: service.name };
     } catch (error) {

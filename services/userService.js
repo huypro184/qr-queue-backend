@@ -2,6 +2,7 @@ const { User, Project, Service } = require('../models');
 const bcrypt = require('bcrypt');
 const AppError = require('../utils/AppError');
 const { Op } = require('sequelize');
+const redisClient = require('../config/redisClient');
 
 const validateAndCheckUser = async (name, email, password, phone) => {
     if (!name || !email || !password) {
@@ -42,6 +43,12 @@ const createUserRecord = async (userData) => {
         project_id: userData.project_id,
         status: 'active'
     });
+
+    const keys = await redisClient.keys(`users:${userData.project_id}:*`);
+    if (keys.length > 0) {
+        await redisClient.del(keys);
+    }
+
 
     const { password_hash, password_reset_token, password_reset_expires, password_changed_at, ...userResponse } = newUser.toJSON();
     return userResponse;
@@ -107,6 +114,12 @@ const createStaff = async (data, currentUser) => {
 
 const getAllUsers = async (currentUser, filters = {}) => {
     try {
+        const cacheKey = `users:${currentUser.id}:${JSON.stringify(filters)}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+            return JSON.parse(cached);
+        }
+        
         const { role, search, page = 1, limit = 10 } = filters;
         
         let whereClause = {
@@ -153,7 +166,7 @@ const getAllUsers = async (currentUser, filters = {}) => {
             ? 'No users found' 
             : `${count} user${count > 1 ? 's' : ''} retrieved successfully`;
 
-        return {
+        const result = {
             users,
             message,
             pagination: {
@@ -165,6 +178,10 @@ const getAllUsers = async (currentUser, filters = {}) => {
                 hasPrev: page > 1
             }
         };
+
+        await redisClient.set(cacheKey, JSON.stringify(result), { EX: 300 });
+
+        return result;
     } catch (error) {
         throw error;
     }
@@ -196,6 +213,13 @@ const deleteUser = async (userId, currentUser) => {
             { status: 'inactive' },
             { where: { id: userId } }
         );
+
+        await redisClient.del(`user:me:${userId}`);
+        const projectId = userToDelete ? userToDelete.project_id : currentUser.project_id;
+        const keys = await redisClient.keys(`users:${projectId}:*`);
+        if (keys.length > 0) {
+            await redisClient.del(keys);
+        }
 
         return {
             message: `User ${userToDelete.name} has been deleted successfully`,
@@ -297,6 +321,13 @@ const updateUser = async (userId, updateData, currentUser) => {
             where: { id: userId }
         });
 
+        await redisClient.del(`user:me:${userId}`);
+        const projectId = userToUpdate ? userToUpdate.project_id : currentUser.project_id;
+        const keys = await redisClient.keys(`users:${projectId}:*`);
+        if (keys.length > 0) {
+            await redisClient.del(keys);
+        }
+
         const updatedUser = await User.findOne({
             where: { id: userId },
             include: [
@@ -321,6 +352,12 @@ const updateUser = async (userId, updateData, currentUser) => {
 
 const getMe = async (currentUser) => {
     try {
+        const cacheKey = `user:me:${currentUser.id}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+            return { user: JSON.parse(cached) };
+        }
+
         const user = await User.findOne({
             where: { id: currentUser.id },
             include: [
@@ -333,6 +370,8 @@ const getMe = async (currentUser) => {
             ],
             attributes: { exclude: ['password_hash', 'password_reset_token', 'password_reset_expires', 'password_changed_at'] }
         });
+
+        await redisClient.set(cacheKey, JSON.stringify(user), { EX: 600 });
 
         return {
             user

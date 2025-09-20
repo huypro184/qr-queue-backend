@@ -1,6 +1,7 @@
 const { Line, Service } = require('../models');
 const AppError = require('../utils/AppError');
 const { Op, where } = require('sequelize');
+const redisClient = require('../config/redisClient');
 
 const createLine = async (data, currentUser) => {
     try {
@@ -32,6 +33,11 @@ const createLine = async (data, currentUser) => {
             service_id
         });
 
+        const keys = await redisClient.keys(`lines:${currentUser.project_id}:*`);
+        if (keys.length > 0) {
+            await redisClient.del(keys);
+        };
+
         return newLine;
     } catch (error) {
         throw error;
@@ -40,6 +46,12 @@ const createLine = async (data, currentUser) => {
 
 const getLines = async (currentUser, filters = {}) => {
     try {
+        const cacheKey = `lines:${currentUser.project_id}:${JSON.stringify(filters)}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+            return JSON.parse(cached);
+        }
+
         const { service_id, search, page = 1, limit = 10 } = filters;
 
         let whereClause = {};
@@ -73,7 +85,7 @@ const getLines = async (currentUser, filters = {}) => {
             throw new AppError('No lines found', 404);
         }
 
-        return {
+        const result = {
             lines,
             pagination: {
                 total: count,
@@ -84,6 +96,10 @@ const getLines = async (currentUser, filters = {}) => {
                 hasPrev: page > 1
             }
         };
+
+        await redisClient.set(cacheKey, JSON.stringify(result), { EX: 300 });
+
+        return result;
     } catch (error) {
         throw error;
     }
@@ -122,6 +138,11 @@ const updateLine = async (lineId, data, currentUser) => {
 
         await line.save();
 
+        const keys = await redisClient.keys(`lines:${currentUser.project_id}:*`);
+        if (keys.length > 0) {
+            await redisClient.del(keys);
+        }
+
         return line;
     } catch (error) {
         throw error;
@@ -144,7 +165,12 @@ const deleteLine = async (lineId, currentUser) => {
 
         await line.destroy();
 
-        return { id: lineId, name: line.name};
+        const keys = await redisClient.keys(`lines:${currentUser.project_id}:*`);
+        if (keys.length > 0) {
+            await redisClient.del(keys);
+        }
+
+        return { id: lineId, name: line.name };
     } catch (error) {
         throw error;
     }

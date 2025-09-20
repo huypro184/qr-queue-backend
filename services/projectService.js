@@ -4,6 +4,7 @@ const AppError = require('../utils/AppError');
 const { generateProjectQRCode } = require('../utils/qrcode');
 const { Op, where } = require('sequelize');
 const { v4: uuidv4 } = require("uuid");
+const redisClient = require('../config/redisClient');
 
 const createProject = async (data, currentUser) => {
     try {
@@ -34,12 +35,18 @@ const createProject = async (data, currentUser) => {
             slug: slug
         });
 
-        return {
+        const result = {
             id: newProject.id,
             name: newProject.name,
             description: newProject.description,
             created_at: newProject.created_at
         };
+
+        const keys = await redisClient.keys("projects:*");
+        if (keys.length > 0) {
+            await redisClient.del(keys);
+        }
+        return result;
     } catch (error) {
         throw error;
     }
@@ -47,6 +54,12 @@ const createProject = async (data, currentUser) => {
 
 const getAllProjects = async (currentUser, filters = {}) => {
     try {
+
+        const cacheKey = `projects:${JSON.stringify(filters)}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+            return JSON.parse(cached);
+        }
         const { search, page = 1, limit = 10 } = filters;
         
         let whereClause = {};
@@ -83,7 +96,7 @@ const getAllProjects = async (currentUser, filters = {}) => {
 
         const message = count === 0 ? 'Projects not found' : null;
 
-        return {
+        const result = {
             projects,
             message,
             pagination: {
@@ -95,6 +108,10 @@ const getAllProjects = async (currentUser, filters = {}) => {
                 hasPrev: page > 1
             }
         };
+
+        await redisClient.set(cacheKey, JSON.stringify(result), { EX: 300 });
+
+        return result;
     } catch (error) {
         throw error;
     }
@@ -146,6 +163,12 @@ const updateProject = async (projectId, data, currentUser) => {
             ]
         });
 
+        const keys = await redisClient.keys("projects:*");
+        if (keys.length > 0) {
+            await redisClient.del(keys);
+        }
+        await redisClient.del(`slug:${updatedProject.slug}`);
+
         return {
             id: updatedProject.id,
             name: updatedProject.name,
@@ -189,6 +212,12 @@ const deleteProject = async (projectId, currentUser) => {
             where: { id: projectId }
         });
 
+        const keys = await redisClient.keys("projects:*");
+        if (keys.length > 0) {
+            await redisClient.del(keys);
+        }
+        await redisClient.del(`slug:${existingProject.slug}`);
+
         return {
             message: 'Project deleted successfully',
             deletedProject: {
@@ -203,6 +232,9 @@ const deleteProject = async (projectId, currentUser) => {
 
 const getServicefromSlug = async (slug) => {
     try {
+        const cacheKey = `slug:${slug}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
         const service = await Service.findAll({
             include: [{
                 model: Project,
@@ -216,6 +248,9 @@ const getServicefromSlug = async (slug) => {
             }],
             attributes: ['id', 'name', 'description']
         });
+
+        await redisClient.set(cacheKey, JSON.stringify(service), { EX: 600 });
+
         return service;
     } catch (error) {
         throw error;
