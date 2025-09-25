@@ -2,6 +2,19 @@ const { Service, Project, Line, User, Ticket } = require('../models');
 const AppError = require('../utils/AppError');
 const { Op } = require('sequelize');
 
+const updateWaitingTickets = async (lineId) => {
+    const waitingTickets = await Ticket.findAll({
+        where: { line_id: lineId, status: 'waiting' },
+        order: [['joined_at', 'ASC']]
+    });
+
+    for (let i = 0; i < waitingTickets.length; i++) {
+        const ticket = waitingTickets[i];
+        ticket.queue_length_at_join = i;
+        await ticket.save();
+    }
+};
+
 const createTicket = async (data, currentUser) => {
     try {
         const { serviceId, name, phone } = data;
@@ -148,6 +161,8 @@ const finishTicket = async (ticketId, currentUser) => {
         const serviceTime = ticket.finished_at - ticket.served_at;
         const serviceTimeMinutes = Math.round(serviceTime / 60000 * 100) / 100;
 
+        await updateWaitingTickets(ticket.line_id);
+
         return {
             ticket,
             service_time_ms: serviceTimeMinutes
@@ -169,6 +184,8 @@ const cancelTicket = async (ticketId, currentUser) => {
 
         ticket.status = 'cancelled';
         await ticket.save();
+
+        await updateWaitingTickets(ticket.line_id);
 
         return ticket;
     } catch (error) {
