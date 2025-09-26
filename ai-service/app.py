@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+from typing import List
 import joblib
 import pandas as pd
 
@@ -8,27 +9,32 @@ app = FastAPI(title="Waiting Time Prediction API")
 model = joblib.load("random_forest_waiting_time.pkl")
 
 class TicketData(BaseModel):
+    ticketId: int
     queue_length: int
     hour: int
     day_of_week: int
 
-@app.get("/")
-def root():
-    return {"message": "API is running"}
-
+class TicketsRequest(BaseModel):
+    tickets: List[TicketData]
 
 @app.post("/predict")
-def predict(data: TicketData):
+def predict(data: TicketsRequest):
     try:
-        # Chuyển input thành DataFrame
-        features = pd.DataFrame([data.dict()])
+        df = pd.DataFrame([{
+            "queue_length": t.queue_length,
+            "hour": t.hour,
+            "day_of_week": t.day_of_week
+        } for t in data.tickets])
 
-        # Dự đoán
-        prediction = model.predict(features)[0]
+        predictions = model.predict(df)
 
-        return {
-            "input": data.dict(),
-            "waiting_time_prediction": round(float(prediction), 2)
-        }
+        results = []
+        for ticket, pred in zip(data.tickets, predictions):
+            results.append({
+                "ticketId": ticket.ticketId,
+                "waiting_time_prediction": round(float(pred), 2)
+            })
+
+        return results
     except Exception as e:
         return {"error": str(e)}
