@@ -9,21 +9,6 @@ function extractTimeFeatures(joinedAt) {
   return { hour, day_of_week };
 }
 
-// async function predictWaitingTime(ticketId) {
-
-//     const ticket = await Ticket.findByPk(ticketId);
-//     if (!ticket) throw new Error('Ticket not found');
-
-//     const queue_length =  ticket.queue_length_at_join;
-//     const { hour, day_of_week } = extractTimeFeatures(ticket.joined_at);
-
-//     const payload = { queue_length, hour, day_of_week };
-
-//     const response = await axios.post('http://ai-service:9100/predict', payload);
-
-//     return response.data.waiting_time_prediction;
-// }
-
 async function predictWaitingTime(lineId) {
   const waitingTickets = await Ticket.findAll({
     where: { line_id: lineId, status: 'waiting' },
@@ -46,9 +31,8 @@ async function predictWaitingTime(lineId) {
 
   const response = await axios.post('http://ai-service:9100/predict', payload);
 
-  const predictions = response.data; // [{ ticketId, waiting_time_prediction }]
+  const predictions = response.data;
 
-  // update DB + return
   for (const p of predictions) {
     await Ticket.update(
       { waiting_time: Math.round(p.waiting_time_prediction) },
@@ -58,5 +42,5 @@ async function predictWaitingTime(lineId) {
 
   return predictions;
 }
-
+//aaaaaaaaaaaaaaaaaaaaaaa
 module.exports = { predictWaitingTime };

@@ -13,6 +13,9 @@ services:
     restart: unless-stopped
     networks:
       - qr-queue-net
+    volumes:
+      - .:/app
+    command: npx nodemon app.js
 
   ai-service:
     build:

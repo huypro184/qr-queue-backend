@@ -7,7 +7,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+# RUN npm ci --only=production
+RUN npm install
 
 # Copy source code
 COPY . .
@@ -17,10 +18,12 @@ RUN addgroup -g 1001 -S nodejs && \
     adduser -S qrqueue -u 1001 && \
     chown -R qrqueue:nodejs /app
 
-USER qrqueue
+# USER qrqueue
+
 
 # Expose port
 EXPOSE 3000
 
 # Start command
-CMD ["npm", "start"]
+# CMD ["npm", "start"]
+CMD ["npx", "nodemon", "app.js"]
