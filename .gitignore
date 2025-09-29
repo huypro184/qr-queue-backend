@@ -57,3 +57,12 @@ ai-service/__pycache__/
 ai-service/.ipynb_checkpoints/
 ai-service/*.pyc
 ai-service/data.csv
+
+# Docker
+docker-compose.dev.yml
+Dockerfile.dev
+
+# Specific files
+backend/ai-service/app.py
+
+

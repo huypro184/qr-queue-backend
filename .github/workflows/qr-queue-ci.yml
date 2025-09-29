@@ -5,9 +5,25 @@ on:
     branches: ["main"]
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test
+
   ci-cd:
     runs-on: ubuntu-latest
-
     steps:
       # 1️⃣ Checkout code
       - name: Checkout repository
@@ -84,9 +100,9 @@ jobs:
             echo "Starting new containers via Docker Compose..."
             docker-compose up -d
 
-      # 8️⃣ Stop EC2 instance
-      - name: Stop EC2
-        run: |
-          INSTANCE_ID=${{ secrets.INSTANCE_ID }}
-          aws ec2 stop-instances --instance-ids $INSTANCE_ID
-          aws ec2 wait instance-stopped --instance
+      # # 8️⃣ Stop EC2 instance
+      # - name: Stop EC2
+      #   run: |
+      #     INSTANCE_ID=${{ secrets.INSTANCE_ID }}
+      #     aws ec2 stop-instances --instance-ids $INSTANCE_ID
+      #     aws ec2 wait instance-stopped --instance
