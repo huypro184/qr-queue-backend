@@ -63,7 +63,7 @@ const getServices = async (currentUser, filters = {}) => {
             project_id: projectId
         };
 
-        console.log(whereClause);
+        logger.info(whereClause);
 
         if (search) {
             whereClause[Op.or] = [

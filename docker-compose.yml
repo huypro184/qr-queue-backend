@@ -4,7 +4,7 @@ services:
   qr-queue-backend:
     build:
       context: .
-      dockerfile: Dockerfile.prod
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     env_file:

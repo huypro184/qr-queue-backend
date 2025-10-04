@@ -1,5 +1,7 @@
+const logger = require('../utils/logger');
+
 const errorHandler = (error, req, res, next) => {
-  console.log('Error Handler triggered:', error.message);
+  logger.info('Error Handler triggered:', error.message);
   
   if (error.isOperational) {
     return res.status(error.statusCode).json({

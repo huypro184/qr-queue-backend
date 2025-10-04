@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const promClient = require('prom-client');
+const logger = require('./utils/logger');
 require('dotenv').config();
 
 const { specs, swaggerUi } = require('./config/swagger');
@@ -16,22 +18,27 @@ const lineRoutes = require('./routes/lineRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
 
 const errorHandler = require('./middleware/errorHandler');
+const requestLogger = require('./middleware/requestLogger');
 
 const app = express();
+
+app.use(requestLogger);
+
 const PORT = process.env.PORT;
 
 const connectDB = async () => {
   try {
     await sequelize.authenticate();
-    console.log('✅ PostgreSQL Connected');
-    console.log('Database Name:', sequelize.config.database);
+    logger.info('✅ PostgreSQL Connected');
+    logger.info('Database Name:', sequelize.config.database);
 
     const tables = await sequelize.query("SELECT tablename FROM pg_tables WHERE schemaname = 'public'", 
       { type: sequelize.QueryTypes.SELECT });
-    console.log('📋 Available tables:', tables);
+    logger.info(`📋 Available tables: ${JSON.stringify(tables)}`);
+
 
   } catch (error) {
-    console.error('Error connecting to PostgreSQL:', error.message);
+    logger.error('Error connecting to PostgreSQL:', error.message);
     process.exit(1);
   }
 };
@@ -42,6 +49,15 @@ connectDB();
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Prometheus metrics setup
+const register = new promClient.Registry();
+promClient.collectDefaultMetrics({ register });
+
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.end(await register.metrics());
+});
 
 // Swagger documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
@@ -55,8 +71,8 @@ app.get('/', (req, res) => {
   });
 });
 
-console.log('Server timezone:', Intl.DateTimeFormat().resolvedOptions().timeZone);
-console.log('Current time:', new Date());
+logger.info('Server timezone:', Intl.DateTimeFormat().resolvedOptions().timeZone);
+logger.info('Current time:', new Date());
 
 // API Routes
 app.use('/api/users', userRoutes);
@@ -73,7 +89,7 @@ app.all('*', (req, res) => {
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log(`API URL: http://localhost:${PORT}`);
-  console.log(`Documentation: http://localhost:${PORT}/api-docs`);
+  logger.info(`Server is running on port ${PORT}`);
+  logger.info(`API URL: http://localhost:${PORT}`);
+  logger.info(`Documentation: http://localhost:${PORT}/api-docs`);
 });

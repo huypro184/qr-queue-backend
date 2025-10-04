@@ -143,3 +143,115 @@ describe('userService.getAllUsers', () => {
     expect(result.message).toBe('No users found');
   });
 });
+
+describe('userService.deleteUser', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should throw error if trying to delete self', async () => {
+    await expect(userService.deleteUser(1, { id: 1, role: 'superadmin' }))
+      .rejects.toThrow('You cannot delete your own account');
+  });
+
+  it('should throw error if user not found', async () => {
+    User.findOne.mockResolvedValue(null);
+    await expect(userService.deleteUser(2, { id: 1, role: 'superadmin' }))
+      .rejects.toThrow('User not found');
+  });
+
+  it('should delete user successfully as superadmin', async () => {
+    User.findOne.mockResolvedValue({
+      id: 2,
+      name: 'B',
+      email: 'b@b.com',
+      role: 'staff',
+      project_id: 1
+    });
+    User.update = jest.fn().mockResolvedValue([1]);
+    redisClient.del.mockResolvedValue(1);
+    redisClient.keys.mockResolvedValue(['users:1:cache']);
+    const result = await userService.deleteUser(2, { id: 1, role: 'superadmin', project_id: 1 });
+    expect(result.message).toMatch(/has been deleted successfully/);
+    expect(result.deletedUser).toMatchObject({
+      id: 2,
+      name: 'B',
+      email: 'b@b.com',
+      role: 'staff'
+    });
+    expect(User.update).toHaveBeenCalled();
+    expect(redisClient.del).toHaveBeenCalled();
+  });
+
+  it('should only allow admin to delete staff in their project', async () => {
+    User.findOne.mockResolvedValue({
+      id: 3,
+      name: 'C',
+      email: 'c@c.com',
+      role: 'staff',
+      project_id: 2
+    });
+    User.update = jest.fn().mockResolvedValue([1]);
+    redisClient.del.mockResolvedValue(1);
+    redisClient.keys.mockResolvedValue(['users:2:cache']);
+    const result = await userService.deleteUser(3, { id: 10, role: 'admin', project_id: 2 });
+    expect(result.deletedUser.id).toBe(3);
+    expect(User.update).toHaveBeenCalled();
+    expect(redisClient.del).toHaveBeenCalled();
+  });
+});
+
+describe('userService.updateUser', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should throw error if user not found', async () => {
+    User.findOne.mockResolvedValueOnce(null);
+    await expect(userService.updateUser(2, { name: 'New Name' }, { id: 1, role: 'superadmin' }))
+      .rejects.toThrow('User not found');
+  });
+
+  it('should throw error if email is invalid', async () => {
+    User.findOne.mockResolvedValueOnce({ id: 2, name: 'A', email: 'a@a.com', phone: '123', role: 'user', project_id: 1 });
+    await expect(userService.updateUser(2, { email: 'invalid-email' }, { id: 1, role: 'superadmin' }))
+      .rejects.toThrow('Please provide a valid email');
+  });
+
+  it('should throw error if email already exists', async () => {
+    User.findOne
+      .mockResolvedValueOnce({ id: 2, name: 'A', email: 'a@a.com', phone: '123', role: 'user', project_id: 1 }) // userToUpdate
+      .mockResolvedValueOnce({ id: 3, email: 'b@b.com' }); // existingUser
+    await expect(userService.updateUser(2, { email: 'b@b.com' }, { id: 1, role: 'superadmin' }))
+      .rejects.toThrow('User already exists with this email');
+  });
+
+  it('should throw error if phone already exists', async () => {
+    User.findOne
+      .mockResolvedValueOnce({ id: 2, name: 'A', email: 'a@a.com', phone: '123', role: 'user', project_id: 1 }) // userToUpdate
+      .mockResolvedValueOnce({ id: 4, phone: '999' }); // existingUserByPhone
+    await expect(userService.updateUser(2, { phone: '999' }, { id: 1, role: 'superadmin' }))
+      .rejects.toThrow('Phone number already exists');
+  });
+
+  it('should update user successfully as superadmin', async () => {
+    User.findOne
+      .mockResolvedValueOnce({ id: 2, name: 'A', email: 'a@a.com', phone: '123', role: 'user', project_id: 1 }) // lần 1: userToUpdate
+      .mockResolvedValueOnce(null) // lần 2: existingUser (email)
+      .mockResolvedValueOnce(null) // lần 3: existingUserByPhone
+      .mockResolvedValueOnce({ id: 2, name: 'New Name', email: 'new@a.com', phone: '123', role: 'user', project_id: 1 }); // lần 4: user sau update
+    User.update = jest.fn().mockResolvedValue([1]);
+    redisClient.del.mockResolvedValue(1);
+    redisClient.keys.mockResolvedValue(['users:1:cache']);
+    const result = await userService.updateUser(2, { name: 'New Name', email: 'new@a.com' }, { id: 1, role: 'superadmin' });
+    expect(result.user).toMatchObject({ id: 2, name: 'New Name', email: 'new@a.com' });
+    expect(User.update).toHaveBeenCalled();
+    expect(redisClient.del).toHaveBeenCalled();
+  });
+
+  it('should throw error if admin tries to update role', async () => {
+    User.findOne.mockResolvedValueOnce({ id: 2, name: 'A', email: 'a@a.com', phone: '123', role: 'staff', project_id: 1 });
+    await expect(userService.updateUser(2, { role: 'admin' }, { id: 10, role: 'admin', project_id: 1 }))
+      .rejects.toThrow('Admin cannot update role or project');
+  });
+});
