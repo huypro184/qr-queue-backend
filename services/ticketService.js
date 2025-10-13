@@ -63,7 +63,7 @@ const createTicket = async (data, currentUser) => {
 
         return newTicket;
     } catch (error) {
-        throw new AppError('Failed to create ticket', 500);
+        throw error;
     }
 };
 
@@ -111,7 +111,7 @@ const getTickets = async (currentUser, filters = {}) => {
             }
         };
     } catch (error) {
-        throw new AppError('Failed to retrieve tickets', 500);
+        throw error;
     }
 };
 
@@ -140,7 +140,7 @@ const callNextTicket = async (lineId, currentUser) => {
 
         return nextTicket;
     } catch (error) {
-        throw new AppError('Failed to call next ticket', 500);
+        throw error;
     }
 };
 
@@ -168,7 +168,7 @@ const finishTicket = async (ticketId, currentUser) => {
             service_time_ms: serviceTimeMinutes
         };
     } catch (error) {
-        throw new AppError('Failed to finish ticket', 500);
+        throw error;
     }
 };
 
@@ -189,7 +189,7 @@ const cancelTicket = async (ticketId, currentUser) => {
 
         return ticket;
     } catch (error) {
-        throw new AppError('Failed to cancel ticket', 500);
+        throw error;
     }
 };
 

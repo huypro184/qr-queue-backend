@@ -2,6 +2,7 @@ const { Line, Service } = require('../models');
 const AppError = require('../utils/AppError');
 const { Op, where } = require('sequelize');
 const redisClient = require('../config/redisClient');
+const e = require('express');
 
 const createLine = async (data, currentUser) => {
     try {
@@ -40,7 +41,7 @@ const createLine = async (data, currentUser) => {
 
         return newLine;
     } catch (error) {
-        throw new AppError('Failed to create line', 500);
+        throw error;
     }
 };
 
@@ -101,7 +102,7 @@ const getLines = async (currentUser, filters = {}) => {
 
         return result;
     } catch (error) {
-        throw new AppError('Failed to retrieve lines', 500);
+        throw error;
     }
 };
 
@@ -145,7 +146,7 @@ const updateLine = async (lineId, data, currentUser) => {
 
         return line;
     } catch (error) {
-        throw new AppError('Failed to update line', 500);
+        throw error;
     }
 };
 
@@ -172,7 +173,7 @@ const deleteLine = async (lineId, currentUser) => {
 
         return { id: lineId, name: line.name };
     } catch (error) {
-        throw new AppError('Failed to delete line', 500);
+        throw error;
     }
 };
 

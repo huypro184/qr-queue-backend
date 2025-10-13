@@ -42,7 +42,7 @@ const createService = async (data, currentUser) => {
         // const { average_service_time: avgServiceTime, historical_avg_wait: histAvgWait, ...serviceData } = newService.toJSON();
         return newService.toJSON();
     } catch (error) {
-        throw new AppError('Failed to create service', 500);
+        throw error;
     }
 };
 
@@ -112,7 +112,7 @@ const getServices = async (currentUser, filters = {}) => {
 
         return result;
     } catch (error) {
-        throw new AppError('Failed to retrieve services', 500);
+        throw error;
     }
 };
 
@@ -148,7 +148,7 @@ const updateService = async (serviceId, data, currentUser) => {
 
         return service;
     } catch (error) {
-        throw new AppError('Failed to update service', 500);
+        throw error;
     }
 };
 
@@ -170,7 +170,7 @@ const deleteService = async (serviceId, currentUser) => {
 
         return { id: serviceId, name: service.name };
     } catch (error) {
-        throw new AppError('Failed to delete service', 500);
+        throw error;
     }
 };
 
