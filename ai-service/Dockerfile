@@ -2,10 +2,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY . .
+COPY requirements.txt .
 
-RUN pip install --no-cache-dir fastapi uvicorn joblib pandas scikit-learn
+RUN pip install --no-cache-dir -r requirements.txt
 
-EXPOSE 9100
+COPY random_forest_waiting_time.pkl .
+COPY app.py .
 
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "9100"]
+CMD ["python", "app.py"]

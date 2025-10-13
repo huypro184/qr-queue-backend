@@ -1,5 +1,7 @@
 const { Ticket } = require('../models');
-const axios = require('axios');
+const logger = require('../utils/logger');
+const { getChannel, releaseChannel } = require('../utils/rabbit');
+const { v4: uuidv4 } = require('uuid');
 
 function extractTimeFeatures(joinedAt) {
   const date = new Date(joinedAt);
@@ -27,20 +29,50 @@ async function predictWaitingTime(lineId) {
     };
   });
 
-    const payload = { tickets: ticketsPayload };
+  const channel = await getChannel();
+  const correlationId = uuidv4();
 
-  const response = await axios.post('http://ai-service:9100/predict', payload);
+  logger.info(`Sending ${ticketsPayload.length} tickets for prediction`);
 
-  const predictions = response.data;
+  // Gửi message đơn giản
+  await channel.sendToQueue('predict_request', 
+    Buffer.from(JSON.stringify({
+      tickets: ticketsPayload,
+      correlationId
+    }))
+  );
 
-  for (const p of predictions) {
-    await Ticket.update(
-      { waiting_time: Math.round(p.waiting_time_prediction) },
-      { where: { id: p.ticketId } }
-    );
-  }
+  // Chờ response
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      releaseChannel(channel);
+      reject(new Error('Prediction timeout'));
+    }, 10000);
 
-  return predictions;
+    channel.consume('predict_response', async (msg) => {
+      if (msg) {
+        const data = JSON.parse(msg.content.toString());
+        
+        if (data.correlationId === correlationId) {
+          clearTimeout(timeout);
+          
+          // Update database
+          for (const p of data.predictions) {
+            await Ticket.update(
+              { waiting_time: Math.round(p.waiting_time_prediction) },
+              { where: { id: p.ticketId } }
+            );
+          }
+          
+          channel.ack(msg);
+          releaseChannel(channel);
+          resolve(data.predictions);
+        } else {
+          channel.nack(msg, false, true);
+        }
+      }
+    });
+  });
 }
-//aaaaaaaaaaaaaaaaaaaaaaa
+
 module.exports = { predictWaitingTime };

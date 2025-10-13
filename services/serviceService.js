@@ -1,4 +1,5 @@
 const { Service, Project, Line } = require('../models');
+const logger = require('../utils/logger');
 const AppError = require('../utils/AppError');
 const { Op } = require('sequelize');
 const redisClient = require('../config/redisClient');
