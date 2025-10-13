@@ -75,7 +75,7 @@ const createAdmin = async (data, currentUser) => {
             project_id: validProjectId
         });
     } catch (error) {
-        throw error;
+        throw new AppError('Failed to create admin', 500);
     }
 };
 
@@ -108,7 +108,7 @@ const createStaff = async (data, currentUser) => {
             project_id: currentUser.project_id
         });
     } catch (error) {
-        throw error;
+        throw new AppError('Failed to create staff', 500);
     }
 };
 
@@ -183,7 +183,7 @@ const getAllUsers = async (currentUser, filters = {}) => {
 
         return result;
     } catch (error) {
-        throw error;
+        throw new AppError('Failed to retrieve users', 500);
     }
 };
 
@@ -232,7 +232,7 @@ const deleteUser = async (userId, currentUser) => {
         };
 
     } catch (error) {
-        throw error;
+        throw new AppError('Failed to delete user', 500);
     }
 };
 
@@ -346,7 +346,7 @@ const updateUser = async (userId, updateData, currentUser) => {
         };
 
     } catch (error) {
-        throw error;
+        throw new AppError('Failed to update user', 500);
     }
 };
 
@@ -378,7 +378,7 @@ const getMe = async (currentUser) => {
         };
 
     } catch (error) {
-        throw error;
+        throw new AppError('Failed to retrieve user', 500);
     }
 };
 

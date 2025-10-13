@@ -40,7 +40,7 @@ const createLine = async (data, currentUser) => {
 
         return newLine;
     } catch (error) {
-        throw error;
+        throw new AppError('Failed to create line', 500);
     }
 };
 
@@ -101,7 +101,7 @@ const getLines = async (currentUser, filters = {}) => {
 
         return result;
     } catch (error) {
-        throw error;
+        throw new AppError('Failed to retrieve lines', 500);
     }
 };
 
@@ -145,7 +145,7 @@ const updateLine = async (lineId, data, currentUser) => {
 
         return line;
     } catch (error) {
-        throw error;
+        throw new AppError('Failed to update line', 500);
     }
 };
 
@@ -172,7 +172,7 @@ const deleteLine = async (lineId, currentUser) => {
 
         return { id: lineId, name: line.name };
     } catch (error) {
-        throw error;
+        throw new AppError('Failed to delete line', 500);
     }
 };
 

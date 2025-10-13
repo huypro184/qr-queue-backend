@@ -2,7 +2,6 @@ const { createProject, getAllProjects, updateProject, deleteProject, getServicef
 const { asyncHandler } = require('../utils/asyncHandler');
 
 const createNewProject = asyncHandler(async (req, res, next) => {
-    const { name, description } = req.body;
 
     const project = await createProject(req.body, req.user);
     

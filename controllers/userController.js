@@ -2,7 +2,6 @@ const {createAdmin, createStaff, getAllUsers, deleteUser, updateUser, getMe} = r
 const { asyncHandler } = require('../utils/asyncHandler');
 
 const createNewAdmin = asyncHandler(async (req, res, next) => {
-    const { name, email, password, phone, project_id } = req.body;
 
     const user = await createAdmin(req.body);
     
@@ -14,7 +13,6 @@ const createNewAdmin = asyncHandler(async (req, res, next) => {
 });
 
 const createNewStaff = asyncHandler(async (req, res, next) => {
-    const { name, email, password, phone, service_ids } = req.body;
 
     const staff = await createStaff(req.body, req.user);
     

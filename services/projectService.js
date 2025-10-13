@@ -48,7 +48,7 @@ const createProject = async (data, currentUser) => {
         }
         return result;
     } catch (error) {
-        throw error;
+        throw new AppError('Failed to create project', 500);
     }
 };
 
@@ -113,7 +113,7 @@ const getAllProjects = async (currentUser, filters = {}) => {
 
         return result;
     } catch (error) {
-        throw error;
+        throw new AppError('Failed to retrieve projects', 500);
     }
 };
 
@@ -177,7 +177,7 @@ const updateProject = async (projectId, data, currentUser) => {
             users: updatedProject.users || []
         };
     } catch (error) {
-        throw error;
+        throw new AppError('Failed to update project', 500);
     }
 };
 
@@ -226,7 +226,7 @@ const deleteProject = async (projectId, currentUser) => {
             }
         };
     } catch (error) {
-        throw error;
+        throw new AppError('Failed to delete project', 500);
     }
 };
 
@@ -253,7 +253,7 @@ const getServicefromSlug = async (slug) => {
 
         return service;
     } catch (error) {
-        throw error;
+        throw new AppError('Failed to retrieve service from slug', 500);
     }
 };
 

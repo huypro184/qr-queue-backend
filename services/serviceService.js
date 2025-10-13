@@ -27,24 +27,22 @@ const createService = async (data, currentUser) => {
             throw new AppError('Project not found', 404);
         }
 
-        const average_service_time = Math.floor(Math.random() * (15 - 5 + 1)) + 5;
-        const historical_avg_wait = Math.floor(Math.random() * (20 - 1 + 1)) + 1;
+        // const average_service_time = Math.floor(Math.random() * (15 - 5 + 1)) + 5;
+        // const historical_avg_wait = Math.floor(Math.random() * (20 - 1 + 1)) + 1;
 
         const newService = await Service.create({
             name,
             description,
-            project_id: projectId,
-            average_service_time,
-            historical_avg_wait
+            project_id: projectId
         });
 
         const keys = await redisClient.keys(`services:${projectId}:*`);
         if (keys.length > 0) await redisClient.del(keys);
 
-        const { average_service_time: avgServiceTime, historical_avg_wait: histAvgWait, ...serviceData } = newService.toJSON();
-        return serviceData;
+        // const { average_service_time: avgServiceTime, historical_avg_wait: histAvgWait, ...serviceData } = newService.toJSON();
+        return newService.toJSON();
     } catch (error) {
-        throw error;
+        throw new AppError('Failed to create service', 500);
     }
 };
 
@@ -88,7 +86,14 @@ const getServices = async (currentUser, filters = {}) => {
             }]
         });
 
-        const message = count === 0 ? 'No services found' : `${count} service${count > 1 ? 's' : ''} retrieved successfully`;
+        // const message = count === 0 ? 'No services found' : `${count} service${count > 1 ? 's' : ''} retrieved successfully`;
+        let message;
+        if (count === 0) {
+        message = 'No services found';
+        } else {
+        const plural = count > 1 ? 's' : '';
+        message = `${count} service${plural} retrieved successfully`;
+        }
 
         const result = {
             services,
@@ -107,7 +112,7 @@ const getServices = async (currentUser, filters = {}) => {
 
         return result;
     } catch (error) {
-        throw error;
+        throw new AppError('Failed to retrieve services', 500);
     }
 };
 
@@ -143,7 +148,7 @@ const updateService = async (serviceId, data, currentUser) => {
 
         return service;
     } catch (error) {
-        throw error;
+        throw new AppError('Failed to update service', 500);
     }
 };
 
@@ -165,7 +170,7 @@ const deleteService = async (serviceId, currentUser) => {
 
         return { id: serviceId, name: service.name };
     } catch (error) {
-        throw error;
+        throw new AppError('Failed to delete service', 500);
     }
 };
 
