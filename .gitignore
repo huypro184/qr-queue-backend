@@ -54,9 +54,19 @@ build/
 
 # AI service ignore
 ai-service/__pycache__/
-ai-service/.ipynb_checkpoints/
 ai-service/*.pyc
-ai-service/data.csv
+ai-service/venv/
+ai-service/env/
+ai-service/.ipynb_checkpoints/
+ai-service/migrations/
+ai-service/.pytest_cache/
+ai-service/.coverage
+ai-service/.mypy_cache/
+ai-service/.pylint.d/
+ai-service/.tox/
+ai-service/.eggs/
+ai-service/*.egg-info/
+ai-service/.cache/
 
 # Docker
 docker-compose.dev.yml
