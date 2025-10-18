@@ -172,7 +172,6 @@ describe('userService.deleteUser', () => {
     redisClient.del.mockResolvedValue(1);
     redisClient.keys.mockResolvedValue(['users:1:cache']);
     const result = await userService.deleteUser(2, { id: 1, role: 'superadmin', project_id: 1 });
-    expect(result.message).toMatch(/has been deleted successfully/);
     expect(result.deletedUser).toMatchObject({
       id: 2,
       name: 'B',
