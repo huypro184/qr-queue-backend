@@ -4,7 +4,9 @@ const promClient = require('prom-client');
 const logger = require('./utils/logger');
 require('dotenv').config();
 
-const { specs, swaggerUi } = require('./config/swagger');
+const path = require('path');
+const swaggerUi = require('swagger-ui-express');
+const YAML = require('yamljs');
 
 const { User, Project, Service, Ticket, Line, sequelize } = require('./models');
 
@@ -60,14 +62,14 @@ app.get('/metrics', async (req, res) => {
 });
 
 // Swagger documentation
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+const swaggerDocs = require('./docs/swagger');
+swaggerDocs(app);
 
 // Routes
 app.get('/', (req, res) => {
   res.json({
     message: 'Hello World! QR Queue API is running',
     status: 'success',
-    documentation: `http://localhost:${PORT}/api-docs`
   });
 });
 

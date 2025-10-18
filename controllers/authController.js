@@ -1,8 +1,8 @@
 const { 
   registerUser, 
   loginUser, 
-  forgotPasswordUser,
-  resetPasswordUser
+//   forgotPasswordUser,
+//   resetPasswordUser
 } = require('../services/authService');
 const { asyncHandler } = require('../utils/asyncHandler');
 
@@ -40,59 +40,59 @@ const login = asyncHandler(async (req, res) => {
     });
 });
 
-const forgotPassword = asyncHandler(async (req, res) => {
-    const { email } = req.body;
+// const forgotPassword = asyncHandler(async (req, res) => {
+//     const { email } = req.body;
 
-    if (!email) {
-    return res.status(400).json({
-      status: 'fail',
-      message: 'Please provide email address'
-    });
-  }
+//     if (!email) {
+//     return res.status(400).json({
+//       status: 'fail',
+//       message: 'Please provide email address'
+//     });
+//   }
 
-  const resetURL = `${req.protocol}://${req.get('host')}/api/auth/reset-password`;
+//   const resetURL = `${req.protocol}://${req.get('host')}/api/auth/reset-password`;
   
-  const result = await forgotPasswordUser(email, resetURL);
+//   const result = await forgotPasswordUser(email, resetURL);
 
-    res.status(200).json({
-        status: 'success',
-        message: 'Password reset instructions sent to your email',
-        data: {
-            message: result.message,
-            ...(process.env.NODE_ENV === 'development' && {
-                resetToken: result.resetToken,
-                resetURL: result.resetURL
-            })
-        }
-    });
-});
+//     res.status(200).json({
+//         status: 'success',
+//         message: 'Password reset instructions sent to your email',
+//         data: {
+//             message: result.message,
+//             ...(process.env.NODE_ENV === 'development' && {
+//                 resetToken: result.resetToken,
+//                 resetURL: result.resetURL
+//             })
+//         }
+//     });
+// });
 
 
-const resetPassword = asyncHandler(async (req, res) => {
-   const { token } = req.params;
-   const { newPassword } = req.body;
+// const resetPassword = asyncHandler(async (req, res) => {
+//    const { token } = req.params;
+//    const { newPassword } = req.body;
 
-    if (!newPassword) {
-        return res.status(400).json({
-            status: 'fail',
-            message: 'Please provide new password'
-        });
-    }
+//     if (!newPassword) {
+//         return res.status(400).json({
+//             status: 'fail',
+//             message: 'Please provide new password'
+//         });
+//     }
 
-   const result = await resetPasswordUser(token, newPassword);
+//    const result = await resetPasswordUser(token, newPassword);
 
-   res.cookie('jwt', result.token, getCookieOptions());
+//    res.cookie('jwt', result.token, getCookieOptions());
 
-   res.status(200).json({
-       status: 'success',
-       message: 'Password reset successful',
-       data: result
-   });
-});
+//    res.status(200).json({
+//        status: 'success',
+//        message: 'Password reset successful',
+//        data: result
+//    });
+// });
 
 module.exports = {
     register,
     login,
-    forgotPassword,
-    resetPassword
+    // forgotPassword,
+    // resetPassword
 };

@@ -167,7 +167,11 @@ const getAllUsers = async (currentUser, filters = {}) => {
             : `${count} user${count > 1 ? 's' : ''} retrieved successfully`;
 
         const result = {
-            users,
+            users: users.map(u => {
+                const user = u.toJSON();
+                user.project = user.project ? user.project.name : null;
+                return user;
+            }),
             message,
             pagination: {
                 total: count,
@@ -222,7 +226,6 @@ const deleteUser = async (userId, currentUser) => {
         }
 
         return {
-            message: `User ${userToDelete.name} has been deleted successfully`,
             deletedUser: {
                 id: userToDelete.id,
                 name: userToDelete.name,
@@ -341,8 +344,13 @@ const updateUser = async (userId, updateData, currentUser) => {
             attributes: { exclude: ['password_hash', 'password_reset_token', 'password_reset_expires', 'password_changed_at'] }
         });
 
+        const userObj = updatedUser ? updatedUser.toJSON() : null;
+        if (userObj) {
+            userObj.project = userObj.project ? userObj.project.name : null;
+        }
+
         return {
-            user: updatedUser
+            user: userObj
         };
 
     } catch (error) {

@@ -1,0 +1,224 @@
+openapi: 3.0.3
+info:
+  title: QR Queue Backend - Auth
+  version: "1.0.0"
+servers:
+  - url: http://localhost:3000
+    description: Local dev
+
+paths:
+  /api/auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        "201":
+          description: User registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+              examples:
+                success:
+                  value:
+                    status: success
+                    message: User registered successfully
+                    data:
+                      user:
+                        id: 1
+                        name: "Jane Doe"
+                        email: "jane@example.com"
+                        phone: "0123456789"
+                        role: "staff"
+                        project_id: 10
+                        status: "active"
+                        created_at: "2025-10-17T07:22:13.123Z"
+        "400":
+          description: Bad request (validation)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_fields:
+                  value:
+                    status: fail
+                    message: Please provide all required fields
+                short_password:
+                  value:
+                    status: fail
+                    message: Password must be at least 8 characters long
+        "409":
+          $ref: '#/components/responses/Conflict'
+
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        "200":
+          description: Login successful (cookie "jwt" is set)
+          headers:
+            Set-Cookie:
+              description: JWT cookie set by server
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponseWithToken'
+              examples:
+                success:
+                  value:
+                    status: success
+                    message: Login successful
+                    data:
+                      user:
+                        id: 1
+                        name: "Jane Doe"
+                        email: "jane@example.com"
+                        phone: "0123456789"
+                        role: "staff"
+                        project_id: 10
+                        status: "active"
+                        created_at: "2025-10-17T07:22:13.123Z"
+                      token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        "400":
+          description: Missing credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Please provide email and password
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        role:
+          type: string
+        project_id:
+          type: integer
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required: [id, name, email]
+
+    RegisterRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        phone:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    ResetPasswordRequest:
+      type: object
+      required: [newPassword]
+      properties:
+        newPassword:
+          type: string
+          minLength: 8
+
+    AuthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+
+    AuthResponseWithToken:
+      allOf:
+        - $ref: '#/components/schemas/AuthResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                user:
+                  $ref: '#/components/schemas/User'
+                token:
+                  type: string
+
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+          example: fail
+        message:
+          type: string
+
+  responses:
+    Unauthorized:
+      description: Authentication failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            status: fail
+            message: Invalid email or password
+    Conflict:
+      description: Resource conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            status: fail
+            message: User already exists with this email

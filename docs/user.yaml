@@ -1,0 +1,535 @@
+openapi: 3.0.3
+info:
+  title: QR Queue Backend - Users
+  version: "1.0.0"
+servers:
+  - url: http://localhost:3000
+    description: Local dev
+
+paths:
+  /api/users/createAdmin:
+    post:
+      tags: [Users]
+      summary: Create a new admin user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAdminRequest'
+      responses:
+        "201":
+          description: Admin created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSingleResponse'
+              example:
+                status: success
+                message: Admin created successfully
+                data:
+                  id: 10
+                  name: "Admin User"
+                  email: "admin@example.com"
+                  phone: "0123456789"
+                  role: "admin"
+                  project_id: 1
+                  status: "active"
+                  created_at: "2025-10-17T07:22:13.123Z"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing:
+                  value:
+                    status: fail
+                    message: Please provide name, email, password
+                invalid_email:
+                  value:
+                    status: fail
+                    message: Please provide a valid email
+                short_password:
+                  value:
+                    status: fail
+                    message: Password must be at least 8 characters long
+        "409":
+          description: Duplicate email or phone
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                email:
+                  value:
+                    status: fail
+                    message: User already exists with this email
+                phone:
+                  value:
+                    status: fail
+                    message: Phone number already exists
+        "404":
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Project not found
+
+
+  /api/users/createStaff:
+    post:
+      tags: [Users]
+      summary: Create a new staff user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStaffRequest'
+      responses:
+        "201":
+          description: Staff created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSingleResponse'
+              example:
+                status: success
+                message: Staff created successfully
+                data:
+                  id: 11
+                  name: "Staff User"
+                  email: "staff@example.com"
+                  phone: "0987654321"
+                  role: "staff"
+                  project_id: 1
+                  status: "active"
+                  created_at: "2025-10-17T07:22:13.123Z"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing:
+                  value:
+                    status: fail
+                    message: Please provide name, email, password
+                invalid_email:
+                  value:
+                    status: fail
+                    message: Please provide a valid email
+                short_password:
+                  value:
+                    status: fail
+                    message: Password must be at least 8 characters long
+                no_project:
+                  value:
+                    status: fail
+                    message: Admin must have a project to create staff
+        "409":
+          description: Duplicate email or phone
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                email:
+                  value:
+                    status: fail
+                    message: User already exists with this email
+                phone:
+                  value:
+                    status: fail
+                    message: Phone number already exists
+        "404":
+          description: Some services not found in your project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Some services not found in your project
+  /api/users:
+    get:
+      tags: [Users]
+      summary: Get list of users
+      parameters:
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [admin, staff, superadmin, customer]
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+              example:
+                status: success
+                message: Users retrieved successfully
+                data:
+                  - id: 37
+                    name: "Admin14"
+                    email: "admin14@gmail.com"
+                    phone: "02345452122324"
+                    role: "admin"
+                    created_at: "2025-10-18T09:59:28.382Z"
+                    project_id: 7
+                    status: "active"
+                    project: "project 10"
+                  - id: 36
+                    name: "Admin13"
+                    email: "admin13@gmail.com"
+                    phone: "02345452122323"
+                    role: "admin"
+                    created_at: "2025-10-18T09:49:45.959Z"
+                    project_id: null
+                    status: "active"
+                    project: null
+                  # ... các user khác ...
+                pagination:
+                  total: 36
+                  page: 1
+                  limit: 10
+                  totalPages: 4
+                  hasNext: true
+                  hasPrev: false
+
+  /api/users/{userId}:
+    patch:
+      tags: [Users]
+      summary: Update a user by id
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        "200":
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSingleResponse'
+              example:
+                status: success
+                message: User updated successfully
+                data:
+                  id: 12
+                  name: "John"
+                  email: "john@example.com"
+                  phone: "0123456789"
+                  role: "staff"
+                  project_id: 1
+                  status: "active"
+                  created_at: "2025-10-17T07:22:13.123Z"
+                  project: "Main Office"
+        "400":
+          description: Validation or permission error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_name:
+                  value:
+                    status: fail
+                    message: Please provide name
+                invalid_email:
+                  value:
+                    status: fail
+                    message: Please provide a valid email
+                downgrade_superadmin:
+                  value:
+                    status: fail
+                    message: Cannot downgrade the only superadmin in the system
+        "403":
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Admin cannot update role or project
+        "409":
+          description: Duplicate email or phone
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                email:
+                  value:
+                    status: fail
+                    message: User already exists with this email
+                phone:
+                  value:
+                    status: fail
+                    message: Phone number already exists
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                user_not_found:
+                  value:
+                    status: fail
+                    message: User not found
+                project_not_found:
+                  value:
+                    status: fail
+                    message: Project not found
+
+    patch:
+      tags: [Users]
+      summary: Update a user by id
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        "200":
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSingleResponse'
+              example:
+                status: success
+                message: User updated successfully
+                data:
+                  id: 12
+                  name: "John"
+                  email: "john@example.com"
+                  phone: "0123456789"
+                  role: "staff"
+                  project_id: 1
+                  status: "active"
+                  created_at: "2025-10-17T07:22:13.123Z"
+                  project: "Main Office"
+        "400":
+          description: Validation or permission error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: User already exists with this email
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: User not found
+
+  /api/users/me:
+    get:
+      tags: [Users]
+      summary: Get current user's profile
+      responses:
+        "200":
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/UserWithProject'
+              example:
+                status: success
+                message: User profile retrieved successfully
+                data:
+                  user:
+                    id: 4
+                    name: "Admin 3"
+                    email: "admin3@gmail.com"
+                    phone: "01234545344312"
+                    role: "admin"
+                    created_at: "2025-09-04T11:00:36.362Z"
+                    project_id: 4
+                    status: "active"
+                    project:
+                      name: "project 4"
+                      description: "description"
+                      qr_code: "data:image/png;base64,..."
+                      slug: "ea88a32d-9dbe-45e4-8fe8-8a26174d37bd"
+
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        role:
+          type: string
+        project_id:
+          type: integer
+          nullable: true
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        project:
+          type: string
+          nullable: true
+
+    CreateAdminRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+          minLength: 8
+        phone:
+          type: string
+        project_id:
+          type: integer
+
+    CreateStaffRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+          minLength: 8
+        phone:
+          type: string
+        service_ids:
+          type: array
+          items:
+            type: integer
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        role:
+          type: string
+        project_id:
+          type: integer
+
+    UserSingleResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/User'
+
+    UserListResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    DeleteUserResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+        deletedUser:
+          $ref: '#/components/schemas/User'
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrev:
+          type: boolean

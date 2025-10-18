@@ -27,9 +27,6 @@ const createService = async (data, currentUser) => {
             throw new AppError('Project not found', 404);
         }
 
-        // const average_service_time = Math.floor(Math.random() * (15 - 5 + 1)) + 5;
-        // const historical_avg_wait = Math.floor(Math.random() * (20 - 1 + 1)) + 1;
-
         const newService = await Service.create({
             name,
             description,

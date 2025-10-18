@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.post('/', protect, restrictTo('superadmin'), createNewProject);
 router.get('/', protect, restrictTo('superadmin'), getProjects);
-router.get('/:slug', protect, restrictTo('admin'), getService);
+router.get('/:slug', protect, restrictTo('superadmin', 'admin'), getService);
 router.patch('/:id', protect, restrictTo('superadmin', 'admin'), updateProjectById);
 router.delete('/:id', protect, restrictTo('superadmin', 'admin'), deleteProjectById);
 

@@ -65,93 +65,93 @@ const loginUser = async (loginData) => {
   return { user: userResponse, token };
 };
 
-const forgotPasswordUser = async (email, baseResetURL) => {
-  const user = await User.findOne({ where: { email } });
+// const forgotPasswordUser = async (email, baseResetURL) => {
+//   const user = await User.findOne({ where: { email } });
 
-  if (!user) {
-    throw new AppError('There is no user with this email address', 404);
-  }
+//   if (!user) {
+//     throw new AppError('There is no user with this email address', 404);
+//   }
 
-  const resetToken = user.createPasswordResetToken();
-  await user.save({ validateBeforeSave: false });
+//   const resetToken = user.createPasswordResetToken();
+//   await user.save({ validateBeforeSave: false });
 
-  const resetURL = `${baseResetURL}/${resetToken}`;
+//   const resetURL = `${baseResetURL}/${resetToken}`;
 
-  const message = `Hello ${user.name},
+//   const message = `Hello ${user.name},
 
-You requested a password reset for your QR Queue account.
+// You requested a password reset for your QR Queue account.
 
-To reset your password, please click the following link:
-${resetURL}
+// To reset your password, please click the following link:
+// ${resetURL}
 
-This link will expire in 10 minutes.
+// This link will expire in 10 minutes.
 
-If you didn't request this password reset, please ignore this email.
+// If you didn't request this password reset, please ignore this email.
 
-Best regards,
-QR Queue Team`;
+// Best regards,
+// QR Queue Team`;
 
-  try {
-    await sendEmail({
-      email: user.email,
-      subject: 'Password Reset Request - QR Queue',
-      message: message
-    });
+//   try {
+//     await sendEmail({
+//       email: user.email,
+//       subject: 'Password Reset Request - QR Queue',
+//       message: message
+//     });
 
-    return {
-      message: 'Token sent to email!',
-      resetToken, // For development
-      resetURL
-    };
-  } catch (error) {
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
-    await user.save({ validateBeforeSave: false });
+//     return {
+//       message: 'Token sent to email!',
+//       resetToken, // For development
+//       resetURL
+//     };
+//   } catch (error) {
+//     user.passwordResetToken = undefined;
+//     user.passwordResetExpires = undefined;
+//     await user.save({ validateBeforeSave: false });
 
-    throw new AppError('There was an error sending the email. Try again later!', 500);
-  }
-};
+//     throw new AppError('There was an error sending the email. Try again later!', 500);
+//   }
+// };
 
-const resetPasswordUser = async (token, newPassword) => {
-  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+// const resetPasswordUser = async (token, newPassword) => {
+//   const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-  const user = await User.findOne({
-  where: {
-    passwordResetToken: hashedToken,
-    passwordResetExpires: { [Op.gt]: new Date() }
-  }
-});
+//   const user = await User.findOne({
+//   where: {
+//     passwordResetToken: hashedToken,
+//     passwordResetExpires: { [Op.gt]: new Date() }
+//   }
+// });
 
-  if (!user) {
-    throw new AppError('Token is invalid or has expired', 400);
-  }
+//   if (!user) {
+//     throw new AppError('Token is invalid or has expired', 400);
+//   }
 
-  if (!newPassword || newPassword.length < 8) {
-    throw new AppError('Password must be at least 8 characters long', 400);
-  }
+//   if (!newPassword || newPassword.length < 8) {
+//     throw new AppError('Password must be at least 8 characters long', 400);
+//   }
 
-  user.password_hash = await bcrypt.hash(newPassword, 12);
-  user.passwordResetToken = undefined;
-  user.passwordResetExpires = undefined;
-  user.passwordChangedAt = new Date();
+//   user.password_hash = await bcrypt.hash(newPassword, 12);
+//   user.passwordResetToken = undefined;
+//   user.passwordResetExpires = undefined;
+//   user.passwordChangedAt = new Date();
   
-  await user.save();
+//   await user.save();
 
-  const newToken = jwt.sign(
-    { id: user.id, email: user.email, role: user.role },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN }
-  );
+//   const newToken = jwt.sign(
+//     { id: user.id, email: user.email, role: user.role },
+//     process.env.JWT_SECRET,
+//     { expiresIn: process.env.JWT_EXPIRES_IN }
+//   );
 
-  const { password_hash, ...userResponse } = user.toJSON();
-  return { 
-    token: newToken,
-  };
-};
+//   const { password_hash, ...userResponse } = user.toJSON();
+//   return { 
+//     token: newToken,
+//   };
+// };
 
 module.exports = {
   registerUser,
   loginUser,
-  forgotPasswordUser,
-  resetPasswordUser
+  // forgotPasswordUser,
+  // resetPasswordUser
 };
