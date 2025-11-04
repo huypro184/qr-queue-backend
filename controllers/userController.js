@@ -3,7 +3,7 @@ const { asyncHandler } = require('../utils/asyncHandler');
 
 const createNewAdmin = asyncHandler(async (req, res, next) => {
 
-    const user = await createAdmin(req.body);
+    const user = await createAdmin(req.body, req.user);
     
     res.status(201).json({
         status: 'success',

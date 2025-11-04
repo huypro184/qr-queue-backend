@@ -4,13 +4,19 @@ const { Model } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class Project extends Model {
     static associate(models) {
+      Project.belongsTo(models.User, {
+        foreignKey: 'admin_id',
+        as: 'admin',
+        onDelete: 'CASCADE'
+      });
       Project.hasMany(models.User, { 
         foreignKey: 'project_id',
-        as: 'users' 
+        as: 'users'
       });
       Project.hasMany(models.Service, {
       foreignKey: 'project_id',
-      as: 'services'
+      as: 'services',
+      onDelete: 'CASCADE'
     });
     }
   }
@@ -34,6 +40,14 @@ module.exports = (sequelize, DataTypes) => {
     description: {
       type: DataTypes.TEXT
     },
+    admin_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+          model: 'users',
+          key: 'id'
+        }
+      },
     qr_code: {
         type: DataTypes.TEXT,
         allowNull: true

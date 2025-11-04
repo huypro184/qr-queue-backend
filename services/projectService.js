@@ -230,11 +230,16 @@ const deleteProject = async (projectId, currentUser) => {
     }
 };
 
-const getServicefromSlug = async (slug) => {
+
+const getServicefromSlug = async (currentUser, slug) => {
     try {
-        const cacheKey = `slug:${slug}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        const haveProject = await Project.findOne({
+            where: { admin_id: currentUser.id }
+        });
+        if (!haveProject) {
+            throw new AppError('Admin has not been assigned to any project. Please contact super admin.', 403);
+        }
+
         const service = await Service.findAll({
             include: [{
                 model: Project,
@@ -248,10 +253,63 @@ const getServicefromSlug = async (slug) => {
             }],
             attributes: ['id', 'name', 'description']
         });
-
-        await redisClient.set(cacheKey, JSON.stringify(service), { EX: 600 });
-
         return service;
+    } catch (error) {
+        throw error;
+    }
+};
+
+const assignProjectToAdmin = async (projectId, adminId) => {
+    try {
+        const project = await Project.findByPk(projectId);
+        if (!project) {
+            throw new AppError('Project not found', 404);
+        }
+
+        const admin = await User.findOne({
+            where: { 
+                id: adminId,
+                role: ['admin']
+            }
+        });
+        
+        if (!admin) {
+            throw new AppError('Admin not found or user is not an admin', 404);
+        }
+
+        await Project.update(
+            { admin_id: null },
+            { where: { admin_id: adminId } }
+        );
+
+        await project.update({ admin_id: adminId });
+
+        await admin.update({ project_id: projectId });
+
+        const updatedProject = await Project.findByPk(projectId, {
+            include: [
+                {
+                    model: User,
+                    as: 'admin',
+                    attributes: ['id', 'name', 'email', 'role']
+                }
+            ]
+        });
+
+        const keys = await redisClient.keys("projects:*");
+        if (keys.length > 0) {
+            await redisClient.del(keys);
+        }
+
+        return {
+            project: {
+                id: updatedProject.id,
+                name: updatedProject.name,
+                description: updatedProject.description,
+                admin: updatedProject.admin,
+                created_at: updatedProject.created_at
+            }
+        };
     } catch (error) {
         throw error;
     }
@@ -262,5 +320,6 @@ module.exports = {
     getAllProjects,
     updateProject,
     deleteProject,
+    assignProjectToAdmin,
     getServicefromSlug
 };

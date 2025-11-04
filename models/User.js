@@ -8,6 +8,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'project_id',
         as: 'project' 
       });
+      User.hasOne(models.Project, {
+        foreignKey: 'admin_id',
+        as: 'managedProjects'
+      });
     }
   }
   

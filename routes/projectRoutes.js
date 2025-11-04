@@ -1,5 +1,5 @@
 const express = require('express');
-const { createNewProject, getProjects, updateProjectById, deleteProjectById, getService } = require('../controllers/projectController');
+const { createNewProject, getProjects, updateProjectById, deleteProjectById, getService, assignProjectAdmin } = require('../controllers/projectController');
 const { protect, restrictTo } = require('../middleware/auth');
 
 const router = express.Router();
@@ -9,5 +9,6 @@ router.get('/', protect, restrictTo('superadmin'), getProjects);
 router.get('/:slug', protect, restrictTo('superadmin', 'admin'), getService);
 router.patch('/:id', protect, restrictTo('superadmin', 'admin'), updateProjectById);
 router.delete('/:id', protect, restrictTo('superadmin', 'admin'), deleteProjectById);
+router.patch('/:projectId/assign-to-admin', protect, restrictTo('superadmin'), assignProjectAdmin);
 
 module.exports = router;

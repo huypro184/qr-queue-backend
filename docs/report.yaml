@@ -1,0 +1,319 @@
+openapi: 3.0.3
+info:
+  title: QR Queue Backend - Reports
+  version: "1.0.0"
+  description: Report and statistics APIs
+servers:
+  - url: http://localhost:3000
+    description: Local dev
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/reports/summary:
+    get:
+      tags: [Reports]
+      summary: Get report summary
+      description: Get overall statistics including total users, projects, and services. Only superadmin can access.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Report summary retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Report summary retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      totalUsers:
+                        type: integer
+                        description: Total count of admin and staff users
+                        example: 20
+                      totalProjects:
+                        type: integer
+                        description: Total number of projects
+                        example: 18
+                      totalServices:
+                        type: integer
+                        description: Total number of services
+                        example: 11
+              examples:
+                success:
+                  value:
+                    status: success
+                    message: Report summary retrieved successfully
+                    data:
+                      totalUsers: 20
+                      totalProjects: 18
+                      totalServices: 11
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+
+  /api/reports/customers-by-days:
+    get:
+      tags: [Reports]
+      summary: Get customer statistics by days
+      description: Get daily customer count for admin's or staff's project. Only admin and staff can access.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: days
+          in: query
+          description: Number of days to retrieve (default 7, min 1, max 365)
+          schema:
+            type: integer
+            default: 7
+            minimum: 1
+            maximum: 365
+          example: 7
+      responses:
+        "200":
+          description: Customer statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  results:
+                    type: integer
+                    description: Number of days returned
+                    example: 7
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id:
+                          type: string
+                          format: date
+                          description: Date in YYYY-MM-DD format
+                          example: "2025-10-25"
+                        totalCustomers:
+                          type: integer
+                          description: Total number of customers (tickets) on this day
+                          example: 26
+              examples:
+                success:
+                  value:
+                    status: success
+                    results: 7
+                    data:
+                      - _id: "2025-10-25"
+                        totalCustomers: 26
+                      - _id: "2025-10-26"
+                        totalCustomers: 24
+                      - _id: "2025-10-27"
+                        totalCustomers: 28
+                      - _id: "2025-10-28"
+                        totalCustomers: 25
+                      - _id: "2025-10-29"
+                        totalCustomers: 19
+                      - _id: "2025-10-30"
+                        totalCustomers: 21
+                      - _id: "2025-10-31"
+                        totalCustomers: 11
+                emptyProject:
+                  value:
+                    status: success
+                    results: 0
+                    data: []
+        "400":
+          description: Invalid days parameter
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: fail
+                  message:
+                    type: string
+                    example: Days must be between 1 and 365
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+
+  /api/reports/all-projects-stats:
+    get:
+      tags: [Reports]
+      summary: Get statistics for all projects
+      description: Get daily customer statistics for all projects. Only superadmin can access.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: days
+          in: query
+          description: Number of days to retrieve (default 7)
+          schema:
+            type: integer
+            default: 7
+          example: 7
+        - name: includeEmpty
+          in: query
+          description: Include projects with no data (default false)
+          schema:
+            type: string
+            enum: ['true', 'false']
+            default: 'false'
+          example: 'false'
+      responses:
+        "200":
+          description: All projects statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  results:
+                    type: integer
+                    description: Number of projects returned
+                    example: 2
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        projectId:
+                          type: integer
+                          description: Project ID
+                          example: 1
+                        projectName:
+                          type: string
+                          description: Project name
+                          example: "Vincom Center"
+                        dailyStats:
+                          type: array
+                          description: Daily customer statistics
+                          items:
+                            type: object
+                            properties:
+                              _id:
+                                type: string
+                                format: date
+                                description: Date in YYYY-MM-DD format
+                                example: "2025-10-25"
+                              totalCustomers:
+                                type: integer
+                                description: Total number of customers on this day
+                                example: 34
+              examples:
+                success:
+                  value:
+                    status: success
+                    results: 2
+                    data:
+                      - projectId: 1
+                        projectName: "Vincom Center"
+                        dailyStats:
+                          - _id: "2025-10-25"
+                            totalCustomers: 34
+                          - _id: "2025-10-26"
+                            totalCustomers: 51
+                          - _id: "2025-10-27"
+                            totalCustomers: 28
+                          - _id: "2025-10-28"
+                            totalCustomers: 45
+                          - _id: "2025-10-29"
+                            totalCustomers: 38
+                          - _id: "2025-10-30"
+                            totalCustomers: 42
+                          - _id: "2025-10-31"
+                            totalCustomers: 39
+                      - projectId: 2
+                        projectName: "Aeon Mall"
+                        dailyStats:
+                          - _id: "2025-10-25"
+                            totalCustomers: 62
+                          - _id: "2025-10-26"
+                            totalCustomers: 75
+                          - _id: "2025-10-27"
+                            totalCustomers: 82
+                          - _id: "2025-10-28"
+                            totalCustomers: 68
+                          - _id: "2025-10-29"
+                            totalCustomers: 71
+                          - _id: "2025-10-30"
+                            totalCustomers: 79
+                          - _id: "2025-10-31"
+                            totalCustomers: 85
+                withEmpty:
+                  value:
+                    status: success
+                    results: 3
+                    data:
+                      - projectId: 1
+                        projectName: "Vincom Center"
+                        dailyStats:
+                          - _id: "2025-10-25"
+                            totalCustomers: 34
+                          - _id: "2025-10-26"
+                            totalCustomers: 51
+                      - projectId: 2
+                        projectName: "Aeon Mall"
+                        dailyStats:
+                          - _id: "2025-10-25"
+                            totalCustomers: 0
+                          - _id: "2025-10-26"
+                            totalCustomers: 0
+                      - projectId: 3
+                        projectName: "Empty Project"
+                        dailyStats:
+                          - _id: "2025-10-25"
+                            totalCustomers: 0
+                          - _id: "2025-10-26"
+                            totalCustomers: 0
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

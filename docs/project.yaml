@@ -297,6 +297,138 @@ paths:
         "500":
           $ref: '#/components/responses/InternalError'
 
+  /api/projects/{projectId}/assign-to-admin:
+    patch:
+      tags: [Projects]
+      summary: Assign project to admin
+      description: Assign a project to an admin user. Only superadmin can access. Admin can only manage one project at a time.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: Project ID
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [admin_id]
+              properties:
+                admin_id:
+                  type: integer
+                  description: Admin user ID
+                  example: 5
+      responses:
+        "200":
+          description: Project assigned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Project assigned to admin successfully
+                  data:
+                    type: object
+                    properties:
+                      project:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                          name:
+                            type: string
+                          description:
+                            type: string
+                            nullable: true
+                          admin_id:
+                            type: integer
+                          admin:
+                            type: object
+                            properties:
+                              id:
+                                type: integer
+                              name:
+                                type: string
+                              email:
+                                type: string
+                              role:
+                                type: string
+                          services:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: integer
+                                name:
+                                  type: string
+                                description:
+                                  type: string
+                          created_at:
+                            type: string
+                            format: date-time
+              examples:
+                success:
+                  value:
+                    status: success
+                    message: Project assigned to admin successfully
+                    data:
+                      project:
+                        id: 1
+                        name: "Vincom Center"
+                        description: "Main shopping center"
+                        admin:
+                          id: 5
+                          name: "John Admin"
+                          email: "john@example.com"
+                          role: "admin"
+                        created_at: "2025-10-17T07:22:13.123Z"
+        "400":
+          description: Missing admin_id
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: fail
+                  message:
+                    type: string
+                    example: Please provide admin_id
+        "404":
+          description: Project or admin not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: fail
+                  message:
+                    type: string
+              examples:
+                projectNotFound:
+                  value:
+                    status: fail
+                    message: Project not found
+                adminNotFound:
+                  value:
+                    status: fail
+                    message: Admin not found or user is not an admin
+
 components:
   securitySchemes:
     bearerAuth:

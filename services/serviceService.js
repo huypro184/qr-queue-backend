@@ -4,6 +4,18 @@ const AppError = require('../utils/AppError');
 const { Op } = require('sequelize');
 const redisClient = require('../config/redisClient');
 
+const getAdminProject = async (currentUser) => {
+    const project = await Project.findOne({
+        where: { admin_id: currentUser.id }
+    });
+
+    if (!project) {
+        throw new AppError('Admin has not been assigned to any project. Please contact super admin.', 403);
+    }
+
+    return project;
+};
+
 const createService = async (data, currentUser) => {
     try {
         const { name, description } = data;
@@ -24,7 +36,7 @@ const createService = async (data, currentUser) => {
 
         const project = await Project.findByPk(projectId);
         if (!project) {
-            throw new AppError('Project not found', 404);
+            throw new AppError('Admin has not been assigned to any project. Please contact super admin.', 403);
         }
 
         const newService = await Service.create({
@@ -32,9 +44,6 @@ const createService = async (data, currentUser) => {
             description,
             project_id: projectId
         });
-
-        const keys = await redisClient.keys(`services:${projectId}:*`);
-        if (keys.length > 0) await redisClient.del(keys);
 
         // const { average_service_time: avgServiceTime, historical_avg_wait: histAvgWait, ...serviceData } = newService.toJSON();
         return newService.toJSON();
@@ -47,19 +56,13 @@ const getServices = async (currentUser, filters = {}) => {
     try {
         const { search, page = 1, limit = 10 } = filters;
 
-        const projectId = currentUser.project_id;
+        const project = await getAdminProject(currentUser);
+        const projectId = project.id;
 
-        const cacheKey = `services:${projectId}:${JSON.stringify(filters)}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) {
-            return JSON.parse(cached);
-        }
 
         let whereClause = {
             project_id: projectId
         };
-
-        logger.info(whereClause);
 
         if (search) {
             whereClause[Op.or] = [
@@ -105,8 +108,6 @@ const getServices = async (currentUser, filters = {}) => {
             }
         };
 
-        await redisClient.set(cacheKey, JSON.stringify(result), { EX: 300 });
-
         return result;
     } catch (error) {
         throw error;
@@ -116,7 +117,8 @@ const getServices = async (currentUser, filters = {}) => {
 const updateService = async (serviceId, data, currentUser) => {
     try {
         const { name, description, average_service_time } = data;
-        const projectId = currentUser.project_id;
+        const project = await getAdminProject(currentUser);
+        const projectId = project.id;
 
         const service = await Service.findOne({
             where: { id: serviceId, project_id: projectId }
@@ -140,9 +142,6 @@ const updateService = async (serviceId, data, currentUser) => {
 
         await service.save();
 
-        const keys = await redisClient.keys(`services:${projectId}:*`);
-        if (keys.length > 0) await redisClient.del(keys);
-
         return service;
     } catch (error) {
         throw error;
@@ -151,7 +150,8 @@ const updateService = async (serviceId, data, currentUser) => {
 
 const deleteService = async (serviceId, currentUser) => {
     try {
-        const projectId = currentUser.project_id;
+        const project = await getAdminProject(currentUser);
+        const projectId = project.id;
 
         const service = await Service.findOne({
             where: { id: serviceId, project_id: projectId }
@@ -161,9 +161,6 @@ const deleteService = async (serviceId, currentUser) => {
         }
 
         await service.destroy();
-
-        const keys = await redisClient.keys(`services:${projectId}:*`);
-        if (keys.length > 0) await redisClient.del(keys);
 
         return { id: serviceId, name: service.name };
     } catch (error) {

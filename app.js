@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const promClient = require('prom-client');
 const logger = require('./utils/logger');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
 
 const path = require('path');
@@ -18,6 +19,7 @@ const projectRoutes = require('./routes/projectRoutes');
 const serviceRoutes = require('./routes/serviceRoutes');
 const lineRoutes = require('./routes/lineRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
+const reportRoutes = require('./routes/reportRoutes');
 
 const errorHandler = require('./middleware/errorHandler');
 const requestLogger = require('./middleware/requestLogger');
@@ -26,7 +28,7 @@ const app = express();
 
 app.use(requestLogger);
 
-const PORT = process.env.PORT;
+const PORT = Number(process.env.PORT) || 3000;
 
 const connectDB = async () => {
   try {
@@ -49,8 +51,13 @@ const connectDB = async () => {
 connectDB();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3001',
+  credentials: true
+}));
+
 app.use(express.json());
+app.use(cookieParser());
 
 // Prometheus metrics setup
 const register = new promClient.Registry();
@@ -83,6 +90,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/lines', lineRoutes);
 app.use('/api/tickets', ticketRoutes);
+app.use('/api/reports', reportRoutes);
 
 app.all('*', (req, res) => {
   throw new Error('Route not found');

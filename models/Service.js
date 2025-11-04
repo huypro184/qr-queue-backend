@@ -10,7 +10,8 @@ module.exports = (sequelize, DataTypes) => {
       });
       Service.hasMany(models.Line, {
         foreignKey: 'service_id',
-        as: 'lines'
+        as: 'lines',
+        onDelete: 'CASCADE'
       });
     }
   }

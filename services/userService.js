@@ -44,12 +44,6 @@ const createUserRecord = async (userData) => {
         status: 'active'
     });
 
-    const keys = await redisClient.keys(`users:${userData.project_id}:*`);
-    if (keys.length > 0) {
-        await redisClient.del(keys);
-    }
-
-
     const { password_hash, password_reset_token, password_reset_expires, password_changed_at, ...userResponse } = newUser.toJSON();
     return userResponse;
 };
@@ -113,13 +107,7 @@ const createStaff = async (data, currentUser) => {
 };
 
 const getAllUsers = async (currentUser, filters = {}) => {
-    try {
-        const cacheKey = `users:${currentUser.id}:${JSON.stringify(filters)}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) {
-            return JSON.parse(cached);
-        }
-        
+    try {    
         const { role, search, page = 1, limit = 10 } = filters;
         
         let whereClause = {
@@ -183,8 +171,6 @@ const getAllUsers = async (currentUser, filters = {}) => {
             }
         };
 
-        await redisClient.set(cacheKey, JSON.stringify(result), { EX: 300 });
-
         return result;
     } catch (error) {
         throw error;
@@ -217,13 +203,6 @@ const deleteUser = async (userId, currentUser) => {
             { status: 'inactive' },
             { where: { id: userId } }
         );
-
-        await redisClient.del(`user:me:${userId}`);
-        const projectId = userToDelete ? userToDelete.project_id : currentUser.project_id;
-        const keys = await redisClient.keys(`users:${projectId}:*`);
-        if (keys.length > 0) {
-            await redisClient.del(keys);
-        }
 
         return {
             deletedUser: {
@@ -302,17 +281,17 @@ const updateUser = async (userId, updateData, currentUser) => {
             throw new AppError('Cannot downgrade the only superadmin in the system', 400);
             }
             dataToUpdate.role = role;
-            if (project_id !== undefined) {
-            if (project_id) {
-                const project = await Project.findByPk(project_id);
-                if (!project) {
-                throw new AppError('Project not found', 404);
-                }
-                dataToUpdate.project_id = project.id;
-            } else {
-                dataToUpdate.project_id = null;
-            }
-            }
+            // if (project_id !== undefined) {
+            // if (project_id) {
+            //     const project = await Project.findByPk(project_id);
+            //     if (!project) {
+            //     throw new AppError('Project not found', 404);
+            //     }
+            //     dataToUpdate.project_id = project.id;
+            // } else {
+            //     dataToUpdate.project_id = null;
+            // }
+            // }
         } else if (currentUser.role === 'admin') {
             if (role || project_id !== undefined) {
             throw new AppError('Admin cannot update role or project', 403);
@@ -360,11 +339,6 @@ const updateUser = async (userId, updateData, currentUser) => {
 
 const getMe = async (currentUser) => {
     try {
-        const cacheKey = `user:me:${currentUser.id}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) {
-            return { user: JSON.parse(cached) };
-        }
 
         const user = await User.findOne({
             where: { id: currentUser.id },
@@ -378,9 +352,7 @@ const getMe = async (currentUser) => {
             ],
             attributes: { exclude: ['password_hash', 'password_reset_token', 'password_reset_expires', 'password_changed_at'] }
         });
-
-        await redisClient.set(cacheKey, JSON.stringify(user), { EX: 600 });
-
+    
         return {
             user
         };

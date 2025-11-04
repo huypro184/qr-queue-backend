@@ -34,7 +34,6 @@ async function predictWaitingTime(lineId) {
 
   logger.info(`Sending ${ticketsPayload.length} tickets for prediction`);
 
-  // Gửi message đơn giản
   await channel.sendToQueue('predict_request', 
     Buffer.from(JSON.stringify({
       tickets: ticketsPayload,
@@ -42,7 +41,6 @@ async function predictWaitingTime(lineId) {
     }))
   );
 
-  // Chờ response
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       releaseChannel(channel);
@@ -56,7 +54,6 @@ async function predictWaitingTime(lineId) {
         if (data.correlationId === correlationId) {
           clearTimeout(timeout);
           
-          // Update database
           for (const p of data.predictions) {
             await Ticket.update(
               { waiting_time: Math.round(p.waiting_time_prediction) },

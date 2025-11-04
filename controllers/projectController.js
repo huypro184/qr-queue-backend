@@ -1,5 +1,6 @@
-const { createProject, getAllProjects, updateProject, deleteProject, getServicefromSlug } = require('../services/projectService');
+const { createProject, getAllProjects, updateProject, deleteProject, getServicefromSlug, assignProjectToAdmin } = require('../services/projectService');
 const { asyncHandler } = require('../utils/asyncHandler');
+const AppError = require('../utils/AppError');
 
 const createNewProject = asyncHandler(async (req, res, next) => {
 
@@ -49,8 +50,7 @@ const deleteProjectById = asyncHandler(async (req, res, next) => {
 
 const getService = asyncHandler(async (req, res, next) => {
     const { slug } = req.params;
-
-    const service = await getServicefromSlug(slug);
+    const service = await getServicefromSlug(req.user, slug);
 
     res.status(200).json({
         status: 'success',
@@ -59,10 +59,28 @@ const getService = asyncHandler(async (req, res, next) => {
     });
 });
 
+const assignProjectAdmin = asyncHandler(async (req, res, next) => {
+    const { projectId } = req.params;
+    const { admin_id } = req.body;
+
+    if (!admin_id) {
+        throw new AppError('Please provide admin_id', 400);
+    }
+
+    const result = await assignProjectToAdmin(projectId, admin_id);
+
+    res.status(200).json({
+        status: 'success',
+        message: 'Project assigned to admin successfully',
+        data: result
+    });
+});
+
 module.exports = {
     createNewProject,
     getProjects,
     updateProjectById,
     deleteProjectById,
-    getService
+    getService,
+    assignProjectAdmin
 };
