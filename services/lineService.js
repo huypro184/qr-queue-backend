@@ -1,11 +1,34 @@
-const { Line, Service } = require('../models');
+const { Line, Service, Project } = require('../models');
 const AppError = require('../utils/AppError');
 const { Op, where } = require('sequelize');
 const redisClient = require('../config/redisClient');
-const e = require('express');
+
+const getUserProject = async (currentUser) => {
+    let project;
+
+    if (currentUser.role === 'admin') {
+        project = await Project.findOne({
+            where: { admin_id: currentUser.id }
+        });
+    } else if (currentUser.role === 'staff') {
+        project = await Project.findOne({
+            where: { id: currentUser.project_id }
+        });
+    } else {
+        throw new AppError('Invalid user role', 403);
+    }
+
+    if (!project) {
+        throw new AppError('You have not been assigned to any project. Please contact admin.', 403);
+    }
+
+    return project;
+};
 
 const createLine = async (data, currentUser) => {
     try {
+
+        const project = await getUserProject(currentUser);
         const { name, service_id } = data;
 
         if (!name || name.trim() === '') {
@@ -16,7 +39,7 @@ const createLine = async (data, currentUser) => {
         }
 
         const service = await Service.findOne({
-            where: { id: service_id, project_id: currentUser.project_id }
+            where: { id: service_id, project_id: project.id }
         });
         if (!service) {
             throw new AppError('Service not found', 404);
@@ -34,60 +57,69 @@ const createLine = async (data, currentUser) => {
             service_id
         });
 
-        const keys = await redisClient.keys(`lines:${currentUser.project_id}:*`);
-        if (keys.length > 0) {
-            await redisClient.del(keys);
-        };
-
         return newLine;
     } catch (error) {
         throw error;
     }
 };
 
-const getLines = async (currentUser, filters = {}) => {
+const getLines = async (serviceId ,currentUser, filters = {}) => {
     try {
-        const cacheKey = `lines:${currentUser.project_id}:${JSON.stringify(filters)}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) {
-            return JSON.parse(cached);
+        const project = await getUserProject(currentUser);
+        const service = await Service.findOne({
+            where: { 
+                id: serviceId, 
+                project_id: project.id 
+            }
+        });
+        if (!service) {
+            throw new AppError('Service not found', 404);
         }
+        
+        const { search, page = 1, limit = 10 } = filters;
 
-        const { service_id, search, page = 1, limit = 10 } = filters;
+        let whereClause = {
+            service_id: serviceId
+        };
 
-        let whereClause = {};
-
-        if (service_id) {
-            whereClause.service_id = service_id;
-        }
-
-        if (search) {
-            whereClause[Op.and] = [
-                { name: { [Op.iLike]: `%${search}%` } }
-            ];
+        if (search && search.trim()) {
+            whereClause.name = { [Op.iLike]: `%${search.trim()}%` };
         }
 
         const offset = (page - 1) * limit;
 
+        // const { count, rows: lines } = await Line.findAndCountAll({
+        //     where: whereClause,
+        //     include: [{
+        //         model: Service,
+        //         as: 'service',
+        //         where: { project_id: currentUser.project_id },
+        //         attributes: []
+        //     }],
+        //     order: [['created_at', 'DESC']],
+        //     limit: parseInt(limit),
+        //     offset: parseInt(offset)
+        // });
+
         const { count, rows: lines } = await Line.findAndCountAll({
             where: whereClause,
-            include: [{
-                model: Service,
-                as: 'service',
-                where: { project_id: currentUser.project_id },
-                attributes: []
-            }],
             order: [['created_at', 'DESC']],
             limit: parseInt(limit),
-            offset: parseInt(offset)
+            offset: parseInt(offset),
+            attributes: ['id', 'name', 'service_id', 'created_at']
         });
 
-        if (count === 0) {
-            throw new AppError('No lines found', 404);
-        }
+        const message = count === 0 
+            ? 'No lines found for this service' 
+            : `${count} line${count > 1 ? 's' : ''} retrieved successfully`;
 
         const result = {
             lines,
+            message,
+            service: {
+                id: service.id,
+                name: service.name
+            },
             pagination: {
                 total: count,
                 page: parseInt(page),
@@ -98,8 +130,6 @@ const getLines = async (currentUser, filters = {}) => {
             }
         };
 
-        await redisClient.set(cacheKey, JSON.stringify(result), { EX: 300 });
-
         return result;
     } catch (error) {
         throw error;
@@ -109,13 +139,14 @@ const getLines = async (currentUser, filters = {}) => {
 const updateLine = async (lineId, data, currentUser) => {
     try {
         const { name } = data;
+        const project = await getUserProject(currentUser);
 
         const line = await Line.findOne({
             where: { id: lineId },
             include: [{
                 model: Service,
                 as: 'service',
-                where: { project_id: currentUser.project_id }
+                where: { project_id: project.id }
             }]
         });
         if (!line) {
@@ -139,11 +170,6 @@ const updateLine = async (lineId, data, currentUser) => {
 
         await line.save();
 
-        const keys = await redisClient.keys(`lines:${currentUser.project_id}:*`);
-        if (keys.length > 0) {
-            await redisClient.del(keys);
-        }
-
         return line;
     } catch (error) {
         throw error;
@@ -152,12 +178,13 @@ const updateLine = async (lineId, data, currentUser) => {
 
 const deleteLine = async (lineId, currentUser) => {
     try {
+        const project = await getUserProject(currentUser);
         const line = await Line.findOne({
             where: { id: lineId },
             include: [{
                 model: Service,
                 as: 'service',
-                where: { project_id: currentUser.project_id }
+                where: { project_id: project.id }
             }]
         });
         if (!line) {
@@ -165,11 +192,6 @@ const deleteLine = async (lineId, currentUser) => {
         }
 
         await line.destroy();
-
-        const keys = await redisClient.keys(`lines:${currentUser.project_id}:*`);
-        if (keys.length > 0) {
-            await redisClient.del(keys);
-        }
 
         return { id: lineId, name: line.name };
     } catch (error) {

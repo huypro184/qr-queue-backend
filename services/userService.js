@@ -1,8 +1,9 @@
 const { User, Project, Service } = require('../models');
 const bcrypt = require('bcrypt');
 const AppError = require('../utils/AppError');
-const { Op } = require('sequelize');
+const { Op, where } = require('sequelize');
 const redisClient = require('../config/redisClient');
+const { Sequelize } = require('sequelize');
 
 const validateAndCheckUser = async (name, email, password, phone) => {
     if (!name || !email || !password) {
@@ -50,23 +51,13 @@ const createUserRecord = async (userData) => {
 
 const createAdmin = async (data, currentUser) => {
     try {
-        const { email, password, name, phone, project_id } = data;
+        const { email, password, name, phone } = data;
 
         await validateAndCheckUser(name, email, password, phone);
 
-        let validProjectId = null;
-        if (project_id) {
-            const project = await Project.findByPk(project_id);
-            if (!project) {
-                throw new AppError('Project not found', 404);
-            }
-            validProjectId = project.id;
-        }
-
         return await createUserRecord({
             name, email, password, phone,
-            role: 'admin',
-            project_id: validProjectId
+            role: 'admin'
         });
     } catch (error) {
         throw error;
@@ -75,55 +66,60 @@ const createAdmin = async (data, currentUser) => {
 
 const createStaff = async (data, currentUser) => {
     try {
-        if (!currentUser.project_id) {
-            throw new AppError('Admin must have a project to create staff', 400);
+        const project = await Project.findOne({
+            where: { admin_id: currentUser.id },
+        });
+
+        const projectId = project.id;
+
+        if (!project) {
+            throw new AppError('You do not have a project to assign staff', 400);
         }
 
-        const { email, password, name, phone, service_ids } = data;
+        const { email, password, name, phone } = data;
 
         await validateAndCheckUser(name, email, password, phone);
 
-        if (service_ids && service_ids.length > 0) {
-            const services = await Service.findAll({
-                where: {
-                    id: service_ids,
-                    project_id: currentUser.project_id
-                }
-            });
+        // if (service_ids && service_ids.length > 0) {
+        //     const services = await Service.findAll({
+        //         where: {
+        //             id: service_ids,
+        //             project_id: currentUser.project_id
+        //         }
+        //     });
             
-            if (services.length !== service_ids.length) {
-                throw new AppError('Some services not found in your project', 404);
-            }
-        }
+        //     if (services.length !== service_ids.length) {
+        //         throw new AppError('Some services not found in your project', 404);
+        //     }
+        // }
 
         return await createUserRecord({
             name, email, password, phone,
             role: 'staff',
-            project_id: currentUser.project_id
+            project_id: projectId
         });
     } catch (error) {
         throw error;
     }
 };
 
-const getAllUsers = async (currentUser, filters = {}) => {
-    try {    
-        const { role, search, page = 1, limit = 10 } = filters;
-        
-        let whereClause = {
-            status: 'active'
-        };
 
-        if (currentUser.role === 'superadmin') {
-            if (role) {
-                whereClause.role = role;
-            }
-        } else if (currentUser.role === 'admin') {
-            whereClause.project_id = currentUser.project_id;
-            whereClause.role = 'staff';
+const getAllUsers = async (currentUser, filters = {}) => {
+    try {
+        if (currentUser.role !== 'superadmin') {
+            throw new Error('Permission denied: Only superadmin can view all users.');
         }
 
-        whereClause.id = { [Op.not]: currentUser.id };
+        const { role, search, page = 1, limit = 8 } = filters;
+        
+        let whereClause = {
+            status: 'active',
+            id: { [Op.not]: currentUser.id }
+        };
+
+        if (role) {
+            whereClause.role = role;
+        }
 
         if (search) {
             whereClause[Op.or] = [
@@ -141,7 +137,14 @@ const getAllUsers = async (currentUser, filters = {}) => {
                     model: Project,
                     as: 'project',
                     attributes: ['name'],
-                    required: false
+                    required: false,
+                    on: {
+                        [Op.or]: [
+                            { id: { [Op.eq]: Sequelize.col('User.project_id') } },
+
+                            { admin_id: { [Op.eq]: Sequelize.col('User.id') } }
+                        ]
+                    }
                 }
             ],
             order: [['created_at', 'DESC']],
@@ -338,23 +341,249 @@ const updateUser = async (userId, updateData, currentUser) => {
 };
 
 const getMe = async (currentUser) => {
-    try {
+  try {
+    const user = await User.findByPk(currentUser.id, {
+      attributes: ['id', 'name', 'email', 'role'],
+    });
 
-        const user = await User.findOne({
-            where: { id: currentUser.id },
-            include: [
-                {
-                    model: Project,
-                    as: 'project',
-                    attributes: ['name', 'description', 'qr_code', 'slug'],
-                    required: false
-                }
-            ],
-            attributes: { exclude: ['password_hash', 'password_reset_token', 'password_reset_expires', 'password_changed_at'] }
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    const project = await Project.findOne({
+      where: { admin_id: user.id },
+      attributes: ['id', 'name', 'description', 'qr_code', 'slug'],
+    });
+
+    return {
+      user,
+      project: project || null
+    };
+
+  } catch (error) {
+    throw error;
+  }
+};
+
+const getAllStaff = async (currentUser, filters = {}) => {
+    try {
+        const { search, page = 1, limit = 10 } = filters;
+
+        // Lấy project của admin
+        const project = await Project.findOne({
+            where: { admin_id: currentUser.id }
         });
-    
+
+        if (!project) {
+            throw new AppError('You do not have a project assigned', 404);
+        }
+
+        // Build where clause
+        let whereClause = {
+            project_id: project.id,
+            role: 'staff',
+            status: 'active'
+        };
+
+        // Thêm search nếu có
+        if (search && search.trim()) {
+            whereClause[Op.or] = [
+                { name: { [Op.iLike]: `%${search.trim()}%` } },
+                { email: { [Op.iLike]: `%${search.trim()}%` } },
+                { phone: { [Op.iLike]: `%${search.trim()}%` } }
+            ];
+        }
+
+        const offset = (page - 1) * limit;
+
+        // Lấy tất cả staff trong project với pagination
+        const { count, rows: staff } = await User.findAndCountAll({
+            where: whereClause,
+            order: [['created_at', 'DESC']],
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            attributes: { 
+                exclude: ['password_hash', 'password_reset_token', 'password_reset_expires', 'password_changed_at'] 
+            }
+        });
+
         return {
-            user
+            staff,
+            pagination: {
+                total: count,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPages: Math.ceil(count / limit),
+                hasNext: page < Math.ceil(count / limit),
+                hasPrev: page > 1
+            }
+        };
+    } catch (error) {
+        throw error;
+    }
+};
+
+const updateStaff = async (staffId, updateData, currentUser) => {
+    try {
+        const { name, email, phone } = updateData;
+
+        // Kiểm tra admin có project không
+        const project = await Project.findOne({
+            where: { admin_id: currentUser.id }
+        });
+
+        if (!project) {
+            throw new AppError('You do not have a project assigned', 404);
+        }
+
+        // Tìm staff trong project của admin
+        const staffToUpdate = await User.findOne({
+            where: {
+                id: staffId,
+                project_id: project.id,
+                role: 'staff',
+                status: 'active'
+            }
+        });
+
+        if (!staffToUpdate) {
+            throw new AppError('Staff not found in your project', 404);
+        }
+
+        // Validate name
+        if (name !== undefined) {
+            if (!name || !name.trim()) {
+                throw new AppError('Please provide a valid name', 400);
+            }
+        }
+
+        // Validate và check email trùng
+        if (email !== undefined) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                throw new AppError('Please provide a valid email', 400);
+            }
+
+            const existingUser = await User.findOne({ 
+                where: { 
+                    email: email.toLowerCase().trim(),
+                    id: { [Op.not]: staffId }
+                }
+            });
+            
+            if (existingUser) {
+                throw new AppError('Email already exists', 409);
+            }
+        }
+
+        // Validate và check phone trùng
+        if (phone !== undefined && phone !== staffToUpdate.phone) {
+            if (phone && phone.trim()) {
+                const existingUserByPhone = await User.findOne({ 
+                    where: { 
+                        phone: phone.trim(),
+                        id: { [Op.not]: staffId }
+                    }
+                });
+                
+                if (existingUserByPhone) {
+                    throw new AppError('Phone number already exists', 409);
+                }
+            }
+        }
+
+        // Build data to update
+        const dataToUpdate = {};
+        
+        if (name !== undefined) dataToUpdate.name = name.trim();
+        if (email !== undefined) dataToUpdate.email = email.toLowerCase().trim();
+        if (phone !== undefined) dataToUpdate.phone = phone ? phone.trim() : null;
+
+        // Nếu không có gì để update
+        if (Object.keys(dataToUpdate).length === 0) {
+            throw new AppError('No valid fields to update', 400);
+        }
+
+        // Update staff
+        await User.update(dataToUpdate, {
+            where: { id: staffId }
+        });
+
+        // Clear cache
+        await redisClient.del(`user:me:${staffId}`);
+        const keys = await redisClient.keys(`users:${project.id}:*`);
+        if (keys.length > 0) {
+            await redisClient.del(keys);
+        }
+
+        // Lấy thông tin staff đã update
+        const updatedStaff = await User.findOne({
+            where: { id: staffId },
+            attributes: { 
+                exclude: ['password_hash', 'password_reset_token', 'password_reset_expires', 'password_changed_at'] 
+            }
+        });
+
+        return {
+            staff: updatedStaff
+        };
+
+    } catch (error) {
+        throw error;
+    }
+};
+
+const deleteStaff = async (staffId, currentUser) => {
+    try {
+        // Kiểm tra admin có project không
+        const project = await Project.findOne({
+            where: { admin_id: currentUser.id }
+        });
+
+        if (!project) {
+            throw new AppError('You do not have a project assigned', 404);
+        }
+
+        // Không cho phép admin xóa chính mình
+        if (parseInt(staffId) === currentUser.id) {
+            throw new AppError('You cannot delete your own account', 400);
+        }
+
+        // Tìm staff trong project của admin
+        const staffToDelete = await User.findOne({
+            where: {
+                id: staffId,
+                project_id: project.id,
+                role: 'staff',
+                status: 'active'
+            },
+            attributes: ['id', 'name', 'email', 'role', 'project_id']
+        });
+
+        if (!staffToDelete) {
+            throw new AppError('Staff not found in your project', 404);
+        }
+
+        // Soft delete - đổi status thành inactive
+        await User.update(
+            { status: 'inactive' },
+            { where: { id: staffId } }
+        );
+
+        // Clear cache
+        await redisClient.del(`user:me:${staffId}`);
+        const keys = await redisClient.keys(`users:${project.id}:*`);
+        if (keys.length > 0) {
+            await redisClient.del(keys);
+        }
+
+        return {
+            deletedStaff: {
+                id: staffToDelete.id,
+                name: staffToDelete.name,
+                email: staffToDelete.email,
+                role: staffToDelete.role
+            }
         };
 
     } catch (error) {
@@ -366,7 +595,10 @@ module.exports = {
     createAdmin,
     createStaff,
     getAllUsers,
+    updateStaff,
+    getAllStaff,
     getMe,
     deleteUser,
-    updateUser
+    updateUser,
+    deleteStaff
 };

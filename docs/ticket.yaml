@@ -1,0 +1,873 @@
+openapi: 3.0.3
+info:
+  title: QR Queue Backend - Ticket Management
+  version: "1.0.0"
+  description: |
+    Ticket (queue number) management APIs for admin, staff, and customers.
+    
+    **Access Control:**
+    - **Admin/Staff**: Full CRUD access + call next, finish, cancel tickets
+
+servers:
+  - url: http://localhost:3000
+    description: Local dev
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/tickets:
+    post:
+      tags: [Tickets]
+      summary: Create a new ticket
+      description: |
+        Create a ticket by providing service ID, name, and phone.
+        
+        **Process:**
+        1. Find or create user with phone number
+        2. Check if user already has a waiting ticket for this service
+        3. Assign ticket to line with smallest queue
+        4. Increment line total
+        5. Calculate waiting time for all tickets in line
+        
+        **Restrictions:**
+        - Service must exist in user's project
+        - User cannot have multiple waiting tickets for same service
+        - At least one line must exist for the service
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - serviceId
+                - name
+                - phone
+              properties:
+                serviceId:
+                  type: integer
+                  description: Service ID to get ticket for
+                  example: 1
+                name:
+                  type: string
+                  description: Customer name
+                  example: "Nguyen Van A"
+                phone:
+                  type: string
+                  description: Customer phone number (used as unique identifier)
+                  example: "0123456789"
+            examples:
+              example1:
+                summary: Create ticket for service 1
+                value:
+                  serviceId: 1
+                  name: "Nguyen Van A"
+                  phone: "0123456789"
+      responses:
+        "201":
+          description: Ticket created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Ticket created successfully
+                  data:
+                    type: object
+                    properties:
+                      ticket:
+                        $ref: '#/components/schemas/TicketDetail'
+              example:
+                status: success
+                message: Ticket created successfully
+                data:
+                  ticket:
+                    id: 100
+                    line_id: 5
+                    line_name: "Line A"
+                    user_id: 50
+                    name: "Nguyen Van A"
+                    phone: "0123456789"
+                    status: "waiting"
+                    joined_at: "2025-11-11T10:00:00.000Z"
+                    served_at: null
+                    finished_at: null
+                    waiting_time: 15
+                    queue_length_at_join: 3
+                    created_at: "2025-11-11T10:00:00.000Z"
+        "400":
+          description: Service ID is required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Service ID is required
+        "404":
+          description: Service or line not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                serviceNotFound:
+                  summary: Service not found
+                  value:
+                    status: fail
+                    message: Service not found
+                noLine:
+                  summary: No line available
+                  value:
+                    status: fail
+                    message: No line found for this service
+        "409":
+          description: User already has a waiting ticket
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: User already has a waiting ticket for this service
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+  /api/tickets/line/{lineId}:
+    get:
+      tags: [Tickets]
+      summary: Get all tickets in a line
+      description: |
+        Get paginated list of tickets in a specific line (admin/staff only).
+        
+        **Features:**
+        - Filter by ticket status (waiting, serving, done, cancelled)
+        - Search by customer name
+        - Pagination support
+        - Sorted by joined_at DESC (newest first)
+        
+        **Access:**
+        - Admin: Can view tickets in lines of their project
+        - Staff: Can view tickets in lines of their project
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: lineId
+          in: path
+          required: true
+          description: Line ID to get tickets from
+          schema:
+            type: integer
+          example: 22
+        - name: status
+          in: query
+          description: Filter by ticket status
+          schema:
+            type: string
+            enum: [waiting, serving, done, cancelled]
+          example: waiting
+        - name: search
+          in: query
+          description: Search by customer name (case-insensitive)
+          schema:
+            type: string
+          example: "Nguyen"
+        - name: page
+          in: query
+          description: Page number (default 1)
+          schema:
+            type: integer
+            default: 1
+          example: 1
+        - name: limit
+          in: query
+          description: Items per page (default 10)
+          schema:
+            type: integer
+            default: 10
+          example: 10
+      responses:
+        "200":
+          description: Tickets retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Tickets retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      tickets:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TicketListItem'
+                      line:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                            example: 22
+                          name:
+                            type: string
+                            example: "line 1"
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+              example:
+                status: success
+                message: Tickets retrieved successfully
+                data:
+                  tickets:
+                    - id: 207
+                      line_id: 22
+                      user_id: 389
+                      status: "waiting"
+                      joined_at: "2025-11-11T09:30:29.628Z"
+                      served_at: null
+                      finished_at: null
+                      waiting_time: 6
+                      queue_length_at_join: 1
+                      created_at: "2025-11-11T09:30:29.628Z"
+                      user:
+                        id: 389
+                        name: "Nguyen Van F"
+                        phone: "178666267"
+                    - id: 206
+                      line_id: 22
+                      user_id: 388
+                      status: "waiting"
+                      joined_at: "2025-11-11T09:25:35.352Z"
+                      served_at: null
+                      finished_at: null
+                      waiting_time: 3
+                      queue_length_at_join: 0
+                      created_at: "2025-11-11T09:25:35.352Z"
+                      user:
+                        id: 388
+                        name: "Nguyen Van E"
+                        phone: "1786662267"
+                  pagination:
+                    total: 9
+                    page: 1
+                    limit: 10
+                    totalPages: 1
+                    hasNext: false
+                    hasPrev: false
+        "404":
+          description: Line not found or does not belong to project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Line not found or does not belong to your project
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+  /api/tickets/call-next/{lineId}:
+    put:
+      tags: [Tickets]
+      summary: Call next waiting ticket in line
+      description: |
+        Admin/staff can call the next waiting ticket in a line.
+        
+        **Process:**
+        1. Find oldest waiting ticket in line (by joined_at ASC)
+        2. Update ticket status to "serving"
+        3. Set served_at timestamp
+        4. Decrement line total
+        5. Recalculate waiting time for remaining tickets
+        6. Send WebSocket notification to ticket owner
+        7. Notify all waiting tickets about updated waiting time
+        
+        **WebSocket Events:**
+        - `ticket_updated` (to ticket owner): "It's your turn, please proceed to the counter"
+        - `ticket_updated` (to waiting tickets): Updated waiting time
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: lineId
+          in: path
+          required: true
+          description: Line ID to call next ticket from
+          schema:
+            type: integer
+          example: 22
+      responses:
+        "200":
+          description: Next ticket called successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Next ticket called successfully
+                  data:
+                    type: object
+                    properties:
+                      ticket:
+                        $ref: '#/components/schemas/CallNextResponse'
+              example:
+                status: success
+                message: Next ticket called successfully
+                data:
+                  ticket:
+                    id: 206
+                    line_name: "line 1"
+                    customer_name: "Nguyen Van E"
+                    customer_phone: "1786662267"
+                    status: "serving"
+                    served_at: "2025-11-11T10:15:00.000Z"
+        "404":
+          description: No waiting ticket found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: No waiting ticket found for this line
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+  /api/tickets/finish/{ticketId}:
+    put:
+      tags: [Tickets]
+      summary: Finish serving a ticket
+      description: |
+        Admin/staff can mark a serving ticket as done.
+        
+        **Process:**
+        1. Find ticket by ID
+        2. Verify ticket status is "serving"
+        3. Update status to "done"
+        4. Set finished_at timestamp
+        5. Calculate service time (finished_at - served_at)
+        
+        **Restrictions:**
+        - Ticket must exist
+        - Ticket status must be "serving"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          description: Ticket ID to finish
+          schema:
+            type: integer
+          example: 206
+      responses:
+        "200":
+          description: Ticket finished successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Ticket finished successfully
+                  data:
+                    type: object
+                    properties:
+                      ticket:
+                        $ref: '#/components/schemas/Ticket'
+                      service_time_ms:
+                        type: number
+                        description: Service time in minutes
+                        example: 5.23
+              example:
+                status: success
+                message: Ticket finished successfully
+                data:
+                  ticket:
+                    id: 206
+                    line_id: 22
+                    user_id: 388
+                    status: "done"
+                    joined_at: "2025-11-11T09:25:35.352Z"
+                    served_at: "2025-11-11T10:15:00.000Z"
+                    finished_at: "2025-11-11T10:20:23.000Z"
+                    waiting_time: 3
+                    queue_length_at_join: 0
+                    created_at: "2025-11-11T09:25:35.352Z"
+                  service_time_ms: 5.38
+        "400":
+          description: Ticket is not being served
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Ticket is not being served
+        "404":
+          description: Ticket not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Ticket not found
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+  /api/tickets/cancel/{ticketId}:
+    put:
+      tags: [Tickets]
+      summary: Cancel a waiting ticket
+      description: |
+        Admin/staff can cancel a waiting ticket.
+        
+        **Process:**
+        1. Find ticket by ID
+        2. Verify ticket status is "waiting"
+        3. Update status to "cancelled"
+        4. Recalculate waiting time for remaining tickets
+        5. Send WebSocket notification to ticket owner
+        6. Notify all waiting tickets about updated waiting time
+        
+        **WebSocket Events:**
+        - `ticket_updated` (to ticket owner): "Your ticket has been canceled"
+        - `ticket_updated` (to waiting tickets): Updated waiting time
+        
+        **Restrictions:**
+        - Ticket must exist
+        - Ticket status must be "waiting"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          description: Ticket ID to cancel
+          schema:
+            type: integer
+          example: 207
+      responses:
+        "200":
+          description: Ticket cancelled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Ticket cancelled successfully
+                  data:
+                    type: object
+                    properties:
+                      ticket:
+                        $ref: '#/components/schemas/Ticket'
+              example:
+                status: success
+                message: Ticket cancelled successfully
+                data:
+                  ticket:
+                    id: 207
+                    line_id: 22
+                    user_id: 389
+                    status: "cancelled"
+                    joined_at: "2025-11-11T09:30:29.628Z"
+                    served_at: null
+                    finished_at: null
+                    waiting_time: 6
+                    queue_length_at_join: 1
+                    created_at: "2025-11-11T09:30:29.628Z"
+                    updated_at: "2025-11-11T10:25:00.000Z"
+        "400":
+          description: Ticket is not waiting
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Ticket is not waiting
+        "404":
+          description: Ticket not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Ticket not found
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+  /api/tickets/id/{id}:
+    get:
+      tags: [Tickets]
+      summary: Get ticket details by ID
+      description: |
+        Get detailed information about a specific ticket.
+        
+        **Access:**
+        - Admin: Can view tickets in their project
+        - Staff: Can view tickets in their project
+        
+        **Returns:**
+        - Ticket details with line name and user information
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Ticket ID
+          schema:
+            type: integer
+          example: 206
+      responses:
+        "200":
+          description: Ticket retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Ticket retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      ticket:
+                        $ref: '#/components/schemas/TicketDetail'
+              example:
+                status: success
+                message: Ticket retrieved successfully
+                data:
+                  ticket:
+                    id: 206
+                    line_id: 22
+                    line_name: "line 1"
+                    user_id: 388
+                    name: "Nguyen Van E"
+                    phone: "1786662267"
+                    status: "serving"
+                    joined_at: "2025-11-11T09:25:35.352Z"
+                    served_at: "2025-11-11T10:15:00.000Z"
+                    finished_at: null
+                    waiting_time: 3
+                    queue_length_at_join: 0
+                    created_at: "2025-11-11T09:25:35.352Z"
+        "404":
+          description: Ticket not found or does not belong to project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Ticket not found or does not belong to your project
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+  /api/tickets/predict-time:
+    post:
+      tags: [Tickets]
+      summary: Predict waiting time (helper endpoint)
+      description: Endpoint to manually trigger waiting time prediction for a line
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - lineId
+              properties:
+                lineId:
+                  type: integer
+                  example: 22
+      responses:
+        "200":
+          description: Prediction completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Waiting time predicted successfully
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Ticket:
+      type: object
+      description: Full ticket object from database
+      properties:
+        id:
+          type: integer
+          example: 206
+        line_id:
+          type: integer
+          example: 22
+        user_id:
+          type: integer
+          example: 388
+        status:
+          type: string
+          enum: [waiting, serving, done, cancelled]
+          example: "waiting"
+        joined_at:
+          type: string
+          format: date-time
+          example: "2025-11-11T09:25:35.352Z"
+        served_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        waiting_time:
+          type: integer
+          nullable: true
+          description: Estimated waiting time in minutes
+          example: 3
+        queue_length_at_join:
+          type: integer
+          description: Number of people in queue when ticket was created
+          example: 0
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-11T09:25:35.352Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-11-11T09:25:35.352Z"
+
+    TicketDetail:
+      type: object
+      description: Ticket with line name and user information
+      properties:
+        id:
+          type: integer
+          example: 206
+        line_id:
+          type: integer
+          example: 22
+        line_name:
+          type: string
+          nullable: true
+          example: "line 1"
+        user_id:
+          type: integer
+          nullable: true
+          example: 388
+        name:
+          type: string
+          nullable: true
+          description: Customer name
+          example: "Nguyen Van E"
+        phone:
+          type: string
+          nullable: true
+          description: Customer phone
+          example: "1786662267"
+        status:
+          type: string
+          enum: [waiting, serving, done, cancelled]
+          example: "waiting"
+        joined_at:
+          type: string
+          format: date-time
+          example: "2025-11-11T09:25:35.352Z"
+        served_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        waiting_time:
+          type: integer
+          nullable: true
+          example: 3
+        queue_length_at_join:
+          type: integer
+          example: 0
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-11T09:25:35.352Z"
+
+    TicketListItem:
+      type: object
+      description: Ticket in list with user information
+      properties:
+        id:
+          type: integer
+          example: 207
+        line_id:
+          type: integer
+          example: 22
+        user_id:
+          type: integer
+          example: 389
+        status:
+          type: string
+          enum: [waiting, serving, done, cancelled]
+          example: "waiting"
+        joined_at:
+          type: string
+          format: date-time
+          example: "2025-11-11T09:30:29.628Z"
+        served_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        waiting_time:
+          type: integer
+          nullable: true
+          example: 6
+        queue_length_at_join:
+          type: integer
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-11-11T09:30:29.628Z"
+        user:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 389
+            name:
+              type: string
+              example: "Nguyen Van F"
+            phone:
+              type: string
+              example: "178666267"
+
+    CallNextResponse:
+      type: object
+      description: Response when calling next ticket
+      properties:
+        id:
+          type: integer
+          example: 206
+        line_name:
+          type: string
+          nullable: true
+          example: "line 1"
+        customer_name:
+          type: string
+          nullable: true
+          example: "Nguyen Van E"
+        customer_phone:
+          type: string
+          nullable: true
+          example: "1786662267"
+        status:
+          type: string
+          example: "serving"
+        served_at:
+          type: string
+          format: date-time
+          example: "2025-11-11T10:15:00.000Z"
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 9
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        totalPages:
+          type: integer
+          example: 1
+        hasNext:
+          type: boolean
+          example: false
+        hasPrev:
+          type: boolean
+          example: false
+
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [fail, error]
+          example: fail
+        message:
+          type: string
+          example: Error message
+
+  responses:
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            status: error
+            message: Something went wrong!

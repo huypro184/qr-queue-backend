@@ -1,4 +1,4 @@
-const {createAdmin, createStaff, getAllUsers, deleteUser, updateUser, getMe} = require('../services/userService');
+const {createAdmin, createStaff, getAllUsers, deleteUser, updateUser, getMe, getAllStaff, updateStaff, deleteStaff} = require('../services/userService');
 const { asyncHandler } = require('../utils/asyncHandler');
 
 const createNewAdmin = asyncHandler(async (req, res, next) => {
@@ -13,7 +13,6 @@ const createNewAdmin = asyncHandler(async (req, res, next) => {
 });
 
 const createNewStaff = asyncHandler(async (req, res, next) => {
-
     const staff = await createStaff(req.body, req.user);
     
     res.status(201).json({
@@ -69,11 +68,51 @@ const getMeProfile = asyncHandler(async (req, res, next) => {
     });
 });
 
+const getAllStaffController = asyncHandler(async (req, res, next) => {
+    const { search, page, limit } = req.query;
+
+    const result = await getAllStaff(req.user, { search, page, limit });
+
+    res.status(200).json({
+        status: 'success',
+        message: 'Staff retrieved successfully',
+        data: result
+    });
+});
+
+const updateStaffController = asyncHandler(async (req, res, next) => {
+    const { id } = req.params;
+    const { name, email, phone } = req.body;
+
+    const result = await updateStaff(id, { name, email, phone }, req.user);
+
+    res.status(200).json({
+        status: 'success',
+        message: 'Staff updated successfully',
+        data: result
+    });
+});
+
+const deleteStaffController = asyncHandler(async (req, res, next) => {
+    const { id } = req.params;
+
+    const result = await deleteStaff(id, req.user);
+
+    res.status(200).json({
+        status: 'success',
+        message: 'Staff deleted successfully',
+        data: result
+    });
+});
+
 module.exports = {
     createNewAdmin,
     createNewStaff,
     getUsers,
+    getAllStaffController,
+    updateStaffController,
     getMeProfile,
     deleteUserById,
     updateUserById,
+    deleteStaffController
 };

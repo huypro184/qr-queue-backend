@@ -1,16 +1,35 @@
-const { Service, Project, Line } = require('../models');
+const { Service, Project, Line, User } = require('../models');
 const logger = require('../utils/logger');
 const AppError = require('../utils/AppError');
 const { Op } = require('sequelize');
 const redisClient = require('../config/redisClient');
 
-const getAdminProject = async (currentUser) => {
-    const project = await Project.findOne({
-        where: { admin_id: currentUser.id }
-    });
+const invalidateServiceCache = async (projectId) => {
+    const keys = await redisClient.keys(`services:${projectId}:*`);
+    if (keys.length > 0) {
+        await redisClient.del(keys);
+    }
+};
+
+const getUserProject = async (currentUser) => {
+    let project;
+
+    if (currentUser.role === 'admin') {
+        // Admin: tìm project mà admin quản lý
+        project = await Project.findOne({
+            where: { admin_id: currentUser.id }
+        });
+    } else if (currentUser.role === 'staff') {
+        // Staff: tìm project mà staff thuộc về
+        project = await Project.findOne({
+            where: { id: currentUser.project_id }
+        });
+    } else {
+        throw new AppError('Invalid user role', 403);
+    }
 
     if (!project) {
-        throw new AppError('Admin has not been assigned to any project. Please contact super admin.', 403);
+        throw new AppError('You have not been assigned to any project. Please contact admin.', 403);
     }
 
     return project;
@@ -18,13 +37,18 @@ const getAdminProject = async (currentUser) => {
 
 const createService = async (data, currentUser) => {
     try {
+        const project = await getUserProject(currentUser);
+        // if (!project) {
+        //     throw new AppError('Admin has not been assigned to any project. Please contact super admin.', 403);
+        // }
+
         const { name, description } = data;
 
         if (!name || name.trim() === '') {
             throw new AppError('Service name is required', 400);
         }
 
-        const projectId = currentUser.project_id;
+        const projectId = project.id;
 
         const existed = await Service.findOne({
             where: { name, project_id: projectId }
@@ -34,10 +58,7 @@ const createService = async (data, currentUser) => {
             throw new AppError('Service name already exists in this project', 409);
         }
 
-        const project = await Project.findByPk(projectId);
-        if (!project) {
-            throw new AppError('Admin has not been assigned to any project. Please contact super admin.', 403);
-        }
+
 
         const newService = await Service.create({
             name,
@@ -45,7 +66,8 @@ const createService = async (data, currentUser) => {
             project_id: projectId
         });
 
-        // const { average_service_time: avgServiceTime, historical_avg_wait: histAvgWait, ...serviceData } = newService.toJSON();
+        await invalidateServiceCache(projectId);
+
         return newService.toJSON();
     } catch (error) {
         throw error;
@@ -56,9 +78,14 @@ const getServices = async (currentUser, filters = {}) => {
     try {
         const { search, page = 1, limit = 10 } = filters;
 
-        const project = await getAdminProject(currentUser);
+        const project = await getUserProject(currentUser);
         const projectId = project.id;
 
+        const cacheKey = `services:${projectId}:page:${page}:limit:${limit}:search:${search || ''}`;
+        const cachedData = await redisClient.get(cacheKey);
+        if (cachedData) {
+            return JSON.parse(cachedData);
+        }
 
         let whereClause = {
             project_id: projectId
@@ -79,11 +106,6 @@ const getServices = async (currentUser, filters = {}) => {
             limit: parseInt(limit),
             offset: parseInt(offset),
             attributes: ['id', 'name', 'description', 'created_at'],
-            include: [{
-            model: Line,
-            as: 'lines',
-            attributes: ['id', 'name', 'total', 'created_at']
-            }]
         });
 
         // const message = count === 0 ? 'No services found' : `${count} service${count > 1 ? 's' : ''} retrieved successfully`;
@@ -108,6 +130,10 @@ const getServices = async (currentUser, filters = {}) => {
             }
         };
 
+        await redisClient.set(cacheKey, JSON.stringify(result), {
+            EX: 60 * 5  //5 phút
+        });
+
         return result;
     } catch (error) {
         throw error;
@@ -117,7 +143,7 @@ const getServices = async (currentUser, filters = {}) => {
 const updateService = async (serviceId, data, currentUser) => {
     try {
         const { name, description, average_service_time } = data;
-        const project = await getAdminProject(currentUser);
+        const project = await getUserProject(currentUser);
         const projectId = project.id;
 
         const service = await Service.findOne({
@@ -140,6 +166,8 @@ const updateService = async (serviceId, data, currentUser) => {
         if (description !== undefined) service.description = description;
         if (average_service_time !== undefined) service.average_service_time = average_service_time;
 
+        await invalidateServiceCache(projectId);
+
         await service.save();
 
         return service;
@@ -150,7 +178,7 @@ const updateService = async (serviceId, data, currentUser) => {
 
 const deleteService = async (serviceId, currentUser) => {
     try {
-        const project = await getAdminProject(currentUser);
+        const project = await getUserProject(currentUser);
         const projectId = project.id;
 
         const service = await Service.findOne({
@@ -161,6 +189,8 @@ const deleteService = async (serviceId, currentUser) => {
         }
 
         await service.destroy();
+
+        await invalidateServiceCache(projectId);
 
         return { id: serviceId, name: service.name };
     } catch (error) {

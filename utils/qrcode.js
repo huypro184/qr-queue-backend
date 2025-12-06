@@ -8,9 +8,9 @@ const QRCode = require('qrcode');
 const generateProjectQRCode = async (
     slug,
     feDomain = "https://smartqueue.top",
-    feDomainDev = "http://localhost:3001"
+    feDomainDev = "http://localhost:4000"
 ) => {
-    const url = `${feDomainDev}/projects/${slug}`;
+    const url = `${feDomain}/projects/${slug}`;
     
     return await QRCode.toDataURL(url);
 };

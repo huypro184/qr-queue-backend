@@ -3,6 +3,7 @@ const cors = require('cors');
 const promClient = require('prom-client');
 const logger = require('./utils/logger');
 const cookieParser = require('cookie-parser');
+const http = require('http');
 require('dotenv').config();
 
 const path = require('path');
@@ -10,6 +11,8 @@ const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
 
 const { User, Project, Service, Ticket, Line, sequelize } = require('./models');
+const { initializeSocket } = require('./services/websocket');
+
 
 
 // Import routes
@@ -25,6 +28,8 @@ const errorHandler = require('./middleware/errorHandler');
 const requestLogger = require('./middleware/requestLogger');
 
 const app = express();
+const server = http.createServer(app);
+initializeSocket(server);
 
 app.use(requestLogger);
 
@@ -52,7 +57,7 @@ connectDB();
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:3001',
+  origin: true,
   credentials: true
 }));
 
@@ -98,7 +103,7 @@ app.all('*', (req, res) => {
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   logger.info(`Server is running on port ${PORT}`);
   logger.info(`API URL: http://localhost:${PORT}`);
   logger.info(`Documentation: http://localhost:${PORT}/api-docs`);

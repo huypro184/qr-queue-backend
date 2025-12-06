@@ -1,4 +1,5 @@
-const { getReportSummary, getCustomersByProjectAndDays, getAllProjectsCustomerStats } = require('../services/reportService');
+const { get } = require('../routes/reportRoutes');
+const { getReportSummary, getCustomersByProjectAndDays, getAllProjectsCustomerStats, getMockProjectsCustomerStatsFixed, getStatusDistribution, getTopServices, getTicketCountByHour } = require('../services/reportService');
 const { asyncHandler } = require('../utils/asyncHandler');
 
 const fetchReportSummary = asyncHandler(async (req, res, next) => {
@@ -41,8 +42,54 @@ const getAllProjectsStats = asyncHandler(async (req, res, next) => {
     });
 });
 
+const getMockProjectsCustomerStatsFixedController = async (req, res, next) => {
+    try {
+        const data = await getMockProjectsCustomerStatsFixed();
+
+        res.status(200).json({
+            status: 'success',
+            results: data.length,
+            data
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const getStatusDistributionController = async (req, res, next) => {
+    const days = parseInt(req.query.days) || 7;
+    const data = await getStatusDistribution(req.user, days);
+    res.status(200).json({
+        status: 'success',
+        data
+    });
+};
+
+const getTopServicesController = async (req, res, next) => {
+    const days = parseInt(req.query.days) || 7;
+    const data = await getTopServices(req.user, days);
+    res.status(200).json({
+        status: 'success',
+        data
+    });
+};
+
+const getTicketCountByHourController = async (req, res, next) => {
+ 
+    const days = parseInt(req.query.days) || 7;
+    const data = await getTicketCountByHour(req.user, days);
+    res.status(200).json({
+        status: 'success',
+        data
+    });
+};
+
 module.exports = {
     fetchReportSummary,
     fetchCustomersByDays,
-    getAllProjectsStats
+    getAllProjectsStats,
+    getMockProjectsCustomerStatsFixedController,
+    getStatusDistributionController,
+    getTopServicesController,
+    getTicketCountByHourController
 };

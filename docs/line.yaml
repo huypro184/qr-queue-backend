@@ -1,0 +1,610 @@
+openapi: 3.0.3
+info:
+  title: QR Queue Backend - Line Management
+  version: "1.0.0"
+  description: |
+    Line (queue counter) management APIs for admin and staff users.
+    
+    **Access Control:**
+    - **Admin**: Full CRUD access (create, read, update, delete)
+    - **Staff**: Full CRUD access (create, read, update, delete)
+    
+    **Note:** Both admin and staff have same permissions for line management.
+
+servers:
+  - url: http://localhost:3000
+    description: Local dev
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/lines:
+    post:
+      tags: [Lines]
+      summary: Create a new line
+      description: |
+        Admin or staff can create a new line (queue counter) for a service.
+        
+        **Restrictions:**
+        - Line name must not be empty
+        - Line name must be unique within the service
+        - Service must exist in user's project
+        - User must be assigned to a project
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - service_id
+              properties:
+                name:
+                  type: string
+                  description: Line name (must be unique within service)
+                  example: "Line A"
+                service_id:
+                  type: integer
+                  description: Service ID that this line belongs to
+                  example: 1
+            examples:
+              example1:
+                summary: Create Line A for Service 1
+                value:
+                  name: "Line A"
+                  service_id: 1
+              example2:
+                summary: Create Line B for Service 2
+                value:
+                  name: "Line B"
+                  service_id: 2
+      responses:
+        "201":
+          description: Line created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Line created successfully
+                  data:
+                    type: object
+                    properties:
+                      line:
+                        $ref: '#/components/schemas/Line'
+              example:
+                status: success
+                message: Line created successfully
+                data:
+                  line:
+                    id: 12
+                    name: "Line A"
+                    service_id: 1
+        "400":
+          description: Bad request - validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missingName:
+                  summary: Line name is required
+                  value:
+                    status: fail
+                    message: Line name is required
+                missingServiceId:
+                  summary: Service ID is required
+                  value:
+                    status: fail
+                    message: Service ID is required
+        "403":
+          description: User has no project assigned or invalid role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                noProject:
+                  summary: User not assigned to project
+                  value:
+                    status: fail
+                    message: You have not been assigned to any project. Please contact admin.
+                invalidRole:
+                  summary: Invalid user role
+                  value:
+                    status: fail
+                    message: Invalid user role
+        "404":
+          description: Service not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Service not found
+        "409":
+          description: Line name already exists in service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Line name already exists in this service
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+  /api/lines/{serviceId}:
+    get:
+      tags: [Lines]
+      summary: Get all lines for a service
+      description: |
+        Get all lines (queue counters) for a specific service.
+        
+        **Access:**
+        - **Admin**: Can view lines for services in their project
+        - **Staff**: Can view lines for services in their project
+        
+        **Features:**
+        - Search by line name (case-insensitive)
+        - Pagination support
+        - Returns message indicating number of lines found
+        - Sorted by created_at DESC (newest first)
+        
+        **Note:** Returns only basic line info (id, name, service_id, created_at), does NOT include total or updated_at
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          description: Service ID to get lines from
+          schema:
+            type: integer
+          example: 1
+        - name: search
+          in: query
+          description: Search term for line name (case-insensitive)
+          schema:
+            type: string
+          example: "Line A"
+        - name: page
+          in: query
+          description: Page number (default 1)
+          schema:
+            type: integer
+            default: 1
+          example: 1
+        - name: limit
+          in: query
+          description: Items per page (default 10)
+          schema:
+            type: integer
+            default: 10
+          example: 10
+      responses:
+        "200":
+          description: Lines retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Lines retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      lines:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/LineListItem'
+                      message:
+                        type: string
+                        description: Message indicating number of lines found
+                        example: "2 lines retrieved successfully"
+                      service:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                            example: 1
+                          name:
+                            type: string
+                            example: "Tư vấn khách hàng"
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+              examples:
+                multipleLines:
+                  summary: Multiple lines found
+                  value:
+                    status: success
+                    message: Lines retrieved successfully
+                    data:
+                      lines:
+                        - id: 1
+                          name: "Line A"
+                          service_id: 1
+                          created_at: "2025-11-11T10:00:00.000Z"
+                        - id: 2
+                          name: "Line B"
+                          service_id: 1
+                          created_at: "2025-11-11T11:00:00.000Z"
+                      pagination:
+                        total: 2
+                        page: 1
+                        limit: 10
+                        totalPages: 1
+                        hasNext: false
+                        hasPrev: false
+                singleLine:
+                  summary: Single line found
+                  value:
+                    status: success
+                    message: Lines retrieved successfully
+                    data:
+                      lines:
+                        - id: 1
+                          name: "Line A"
+                          service_id: 1
+                          created_at: "2025-11-11T10:00:00.000Z"
+                      message: "1 line retrieved successfully"
+                      service:
+                        id: 1
+                        name: "Tư vấn khách hàng"
+                      pagination:
+                        total: 1
+                        page: 1
+                        limit: 10
+                        totalPages: 1
+                        hasNext: false
+                        hasPrev: false
+                noLines:
+                  summary: No lines found
+                  value:
+                    status: success
+                    message: Lines retrieved successfully
+                    data:
+                      lines: []
+                      message: "No lines found for this service"
+                      service:
+                        id: 1
+                        name: "Tư vấn khách hàng"
+                      pagination:
+                        total: 0
+                        page: 1
+                        limit: 10
+                        totalPages: 0
+                        hasNext: false
+                        hasPrev: false
+        "403":
+          description: User has no project assigned or invalid role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                noProject:
+                  summary: User not assigned to project
+                  value:
+                    status: fail
+                    message: You have not been assigned to any project. Please contact admin.
+                invalidRole:
+                  summary: Invalid user role
+                  value:
+                    status: fail
+                    message: Invalid user role
+        "404":
+          description: Service not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Service not found
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+  /api/lines/{id}:
+    patch:
+      tags: [Lines]
+      summary: Update line information
+      description: |
+        Admin or staff can update line information.
+        
+        **Restrictions:**
+        - Line must exist in user's project
+        - Line name must be unique within the service (if changed)
+        
+        **Updatable fields:**
+        - `name`: Line name
+        
+        **Cache:**
+        - Clears Redis cache for all lines in project after update
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Line ID to update
+          schema:
+            type: integer
+          example: 12
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Line name (must be unique in service)
+                  example: "Line A - VIP"
+            examples:
+              updateName:
+                summary: Update line name
+                value:
+                  name: "Line A - VIP"
+      responses:
+        "200":
+          description: Line updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Line updated successfully
+                  data:
+                    type: object
+                    properties:
+                      line:
+                        $ref: '#/components/schemas/Line'
+              example:
+                status: success
+                message: Line updated successfully
+                data:
+                  line:
+                    id: 12
+                    name: "Line A - VIP"
+                    service_id: 1
+        "404":
+          description: Line not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Line not found
+        "409":
+          description: Line name already exists in service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Line name already exists in this service
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Lines]
+      summary: Delete line
+      description: |
+        Admin or staff can delete a line from their project.
+        
+        **Restrictions:**
+        - Line must exist in user's project
+        
+        **Cache:**
+        - Clears Redis cache for all lines in project after deletion
+        
+        **Note:** This is a hard delete (permanently removes from database)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Line ID to delete
+          schema:
+            type: integer
+          example: 12
+      responses:
+        "200":
+          description: Line deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Line deleted successfully
+                  data:
+                    type: object
+                    properties:
+                      deletedLine:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                            example: 12
+                          name:
+                            type: string
+                            example: "Line A"
+              example:
+                status: success
+                message: Line deleted successfully
+                data:
+                  deletedLine:
+                    id: 12
+                    name: "Line A"
+        "404":
+          description: Line not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Line not found
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Line:
+      type: object
+      description: Full line object with all fields
+      properties:
+        id:
+          type: integer
+          description: Line ID
+          example: 12
+        name:
+          type: string
+          description: Line name
+          example: "Line A"
+        service_id:
+          type: integer
+          description: Service ID that this line belongs to
+          example: 1
+        total:
+          type: integer
+          description: Current number of waiting tickets in this line
+          example: 5
+        created_at:
+          type: string
+          format: date-time
+          description: Line creation timestamp
+          example: "2025-11-11T10:00:00.000Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2025-11-11T10:00:00.000Z"
+      required:
+        - id
+        - name
+        - service_id
+        - created_at
+
+    LineListItem:
+      type: object
+      description: Line object in list (limited fields)
+      properties:
+        id:
+          type: integer
+          description: Line ID
+          example: 1
+        name:
+          type: string
+          description: Line name
+          example: "Line A"
+        service_id:
+          type: integer
+          description: Service ID
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+          description: Line creation timestamp
+          example: "2025-11-11T10:00:00.000Z"
+      required:
+        - id
+        - name
+        - service_id
+        - created_at
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of items
+          example: 25
+        page:
+          type: integer
+          description: Current page number
+          example: 1
+        limit:
+          type: integer
+          description: Items per page
+          example: 10
+        totalPages:
+          type: integer
+          description: Total number of pages
+          example: 3
+        hasNext:
+          type: boolean
+          description: Whether there is a next page
+          example: true
+        hasPrev:
+          type: boolean
+          description: Whether there is a previous page
+          example: false
+      required:
+        - total
+        - page
+        - limit
+        - totalPages
+        - hasNext
+        - hasPrev
+
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [fail, error]
+          example: fail
+        message:
+          type: string
+          example: Error message
+      required:
+        - status
+        - message
+
+  responses:
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            status: error
+            message: Something went wrong!

@@ -116,13 +116,10 @@ paths:
                         name: "project 4"
                         description: "description"
                         created_at: "2025-09-12T16:30:07.374Z"
-                        services:
-                          - id: 18
-                            name: "service 1"
-                            description: "description"
-                          - id: 19
-                            name: "service 2"
-                            description: "description"
+                        admin_id: 366
+                        admin_name: "new35"
+                        admin_email: "josh@gmail.com"
+
                       # ... các project khác ...
                     pagination:
                       total: 4
@@ -131,6 +128,233 @@ paths:
                       totalPages: 2
                       hasNext: true
                       hasPrev: false
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+  /api/projects/unassigned/projects:
+    get:
+      tags: [Projects]
+      summary: Get projects without admin
+      description: |
+        Returns list of projects that don't have an admin assigned yet.
+        Supports search by project name or description.
+        No pagination - returns all matching results.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          description: Search term for project name or description
+          schema:
+            type: string
+          example: "hospital"
+      responses:
+        "200":
+          description: Unassigned projects retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Unassigned projects retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      projects:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                              example: 1
+                            name:
+                              type: string
+                              example: "Hospital Queue System"
+                            description:
+                              type: string
+                              nullable: true
+                              example: "Main hospital queue"
+                      message:
+                        type: string
+                        nullable: true
+                        example: null
+              examples:
+                withResults:
+                  summary: Projects found
+                  value:
+                    status: success
+                    message: Unassigned projects retrieved successfully
+                    data:
+                      projects:
+                        - id: 1
+                          name: "Hospital Queue System"
+                          description: "Main hospital queue"
+                        - id: 3
+                          name: "Shopping Mall Queue"
+                          description: "Mall queue"
+                      message: null
+                noResults:
+                  summary: No unassigned projects
+                  value:
+                    status: success
+                    message: Unassigned projects retrieved successfully
+                    data:
+                      projects: []
+                      message: "No unassigned projects found"
+        "403":
+          description: Access denied - only superadmin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+  /api/projects/assign-project:
+    post:
+      tags: [Projects]
+      summary: Assign project to admin by name
+      description: |
+        Assigns an unassigned project to an admin user.
+        
+        **Changes from previous version:**
+        - Uses `projectName` (string) instead of `projectId` (integer)
+        - Validates that project exists and doesn't have admin yet
+        - Validates that user exists and has admin role
+        
+        Only superadmin can access this endpoint.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+                - projectName
+              properties:
+                userId:
+                  type: integer
+                  description: Admin user ID to assign project to
+                  example: 5
+                projectName:
+                  type: string
+                  description: Exact project name to assign
+                  example: "Hospital Queue System"
+      responses:
+        "200":
+          description: Project assigned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Project assigned to admin successfully
+                  data:
+                    type: object
+                    properties:
+                      project:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                            example: 1
+                          name:
+                            type: string
+                            example: "Hospital Queue System"
+                          description:
+                            type: string
+                            nullable: true
+                            example: "Main hospital queue"
+                          admin:
+                            type: object
+                            properties:
+                              id:
+                                type: integer
+                                example: 5
+                              name:
+                                type: string
+                                example: "John Admin"
+                              email:
+                                type: string
+                                example: "john@example.com"
+                              role:
+                                type: string
+                                example: "admin"
+                          created_at:
+                            type: string
+                            format: date-time
+                            example: "2025-11-01T10:00:00.000Z"
+              examples:
+                success:
+                  summary: Assignment successful
+                  value:
+                    status: success
+                    message: Project assigned to admin successfully
+                    data:
+                      project:
+                        id: 1
+                        name: "Hospital Queue System"
+                        description: "Main hospital queue"
+                        admin:
+                          id: 5
+                          name: "John Admin"
+                          email: "john@example.com"
+                          role: "admin"
+                        created_at: "2025-11-01T10:00:00.000Z"
+        "400":
+          description: Bad request - missing or invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missingParams:
+                  summary: Missing required fields
+                  value:
+                    status: fail
+                    message: userId and projectName are required
+                invalidUserId:
+                  summary: Invalid userId format
+                  value:
+                    status: fail
+                    message: userId must be a valid number
+        "404":
+          description: Admin or project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                adminNotFound:
+                  summary: Admin user not found
+                  value:
+                    status: fail
+                    message: Admin user not found
+                projectNotFound:
+                  summary: Project not found or already assigned
+                  value:
+                    status: fail
+                    message: Project not found or already has an admin
+        "403":
+          description: Access denied - only superadmin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         "500":
           $ref: '#/components/responses/InternalError'
 
@@ -296,138 +520,6 @@ paths:
                         description: "Handles customer queue"
         "500":
           $ref: '#/components/responses/InternalError'
-
-  /api/projects/{projectId}/assign-to-admin:
-    patch:
-      tags: [Projects]
-      summary: Assign project to admin
-      description: Assign a project to an admin user. Only superadmin can access. Admin can only manage one project at a time.
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: projectId
-          in: path
-          required: true
-          description: Project ID
-          schema:
-            type: integer
-          example: 1
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [admin_id]
-              properties:
-                admin_id:
-                  type: integer
-                  description: Admin user ID
-                  example: 5
-      responses:
-        "200":
-          description: Project assigned successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: success
-                  message:
-                    type: string
-                    example: Project assigned to admin successfully
-                  data:
-                    type: object
-                    properties:
-                      project:
-                        type: object
-                        properties:
-                          id:
-                            type: integer
-                          name:
-                            type: string
-                          description:
-                            type: string
-                            nullable: true
-                          admin_id:
-                            type: integer
-                          admin:
-                            type: object
-                            properties:
-                              id:
-                                type: integer
-                              name:
-                                type: string
-                              email:
-                                type: string
-                              role:
-                                type: string
-                          services:
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                id:
-                                  type: integer
-                                name:
-                                  type: string
-                                description:
-                                  type: string
-                          created_at:
-                            type: string
-                            format: date-time
-              examples:
-                success:
-                  value:
-                    status: success
-                    message: Project assigned to admin successfully
-                    data:
-                      project:
-                        id: 1
-                        name: "Vincom Center"
-                        description: "Main shopping center"
-                        admin:
-                          id: 5
-                          name: "John Admin"
-                          email: "john@example.com"
-                          role: "admin"
-                        created_at: "2025-10-17T07:22:13.123Z"
-        "400":
-          description: Missing admin_id
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: fail
-                  message:
-                    type: string
-                    example: Please provide admin_id
-        "404":
-          description: Project or admin not found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: fail
-                  message:
-                    type: string
-              examples:
-                projectNotFound:
-                  value:
-                    status: fail
-                    message: Project not found
-                adminNotFound:
-                  value:
-                    status: fail
-                    message: Admin not found or user is not an admin
 
 components:
   securitySchemes:

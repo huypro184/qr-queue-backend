@@ -6,6 +6,13 @@ const { Op, where } = require('sequelize');
 const { v4: uuidv4 } = require("uuid");
 const redisClient = require('../config/redisClient');
 
+const clearProjectCache = async () => {
+    const keys = await redisClient.keys("projects:*");
+    if (keys.length > 0) {
+        await redisClient.del(keys);
+    }
+};
+
 const createProject = async (data, currentUser) => {
     try {
         const { name, description } = data;
@@ -42,10 +49,8 @@ const createProject = async (data, currentUser) => {
             created_at: newProject.created_at
         };
 
-        const keys = await redisClient.keys("projects:*");
-        if (keys.length > 0) {
-            await redisClient.del(keys);
-        }
+        await clearProjectCache();
+
         return result;
     } catch (error) {
         throw error;
@@ -54,13 +59,12 @@ const createProject = async (data, currentUser) => {
 
 const getAllProjects = async (currentUser, filters = {}) => {
     try {
-
-        const cacheKey = `projects:${JSON.stringify(filters)}`;
+        const { search, page = 1, limit = 10 } = filters;
+        const cacheKey = `projects:page:${page}:limit:${limit}:search:${search || ''}`;
         const cached = await redisClient.get(cacheKey);
         if (cached) {
             return JSON.parse(cached);
         }
-        const { search, page = 1, limit = 10 } = filters;
         
         let whereClause = {};
 
@@ -81,9 +85,9 @@ const getAllProjects = async (currentUser, filters = {}) => {
             where: whereClause,
             include: [
                 {
-                    model: Service,
-                    as: 'services',
-                    attributes: ['id', 'name', 'description'],
+                    model: User,
+                    as: 'admin',
+                    attributes: ['id', 'name', 'email'],
                     required: false
                 }
             ],
@@ -93,11 +97,20 @@ const getAllProjects = async (currentUser, filters = {}) => {
             attributes: { exclude: ['qr_code'] }
         });
 
+        const projectsWithAdminName = projects.map(project => {
+            const projectData = project.toJSON();
+            return {
+                ...projectData,
+                admin_name: projectData.admin ? projectData.admin.name : null,
+                admin_email: projectData.admin ? projectData.admin.email : null,
+                admin: undefined  // Xóa object admin gốc nếu muốn
+            };
+        });
 
         const message = count === 0 ? 'Projects not found' : null;
 
         const result = {
-            projects,
+            projects: projectsWithAdminName,
             message,
             pagination: {
                 total: totalCount,
@@ -163,11 +176,7 @@ const updateProject = async (projectId, data, currentUser) => {
             ]
         });
 
-        const keys = await redisClient.keys("projects:*");
-        if (keys.length > 0) {
-            await redisClient.del(keys);
-        }
-        await redisClient.del(`slug:${updatedProject.slug}`);
+        await clearProjectCache();
 
         return {
             id: updatedProject.id,
@@ -212,11 +221,7 @@ const deleteProject = async (projectId, currentUser) => {
             where: { id: projectId }
         });
 
-        const keys = await redisClient.keys("projects:*");
-        if (keys.length > 0) {
-            await redisClient.del(keys);
-        }
-        await redisClient.del(`slug:${existingProject.slug}`);
+        await clearProjectCache();
 
         return {
             message: 'Project deleted successfully',
@@ -231,62 +236,110 @@ const deleteProject = async (projectId, currentUser) => {
 };
 
 
-const getServicefromSlug = async (currentUser, slug) => {
+const getServicefromSlug = async (slug) => {
     try {
-        const haveProject = await Project.findOne({
-            where: { admin_id: currentUser.id }
-        });
-        if (!haveProject) {
-            throw new AppError('Admin has not been assigned to any project. Please contact super admin.', 403);
-        }
-
-        const service = await Service.findAll({
-            include: [{
-                model: Project,
-                as: 'project',
-                attributes: [],
-                where: {
-                    slug: {
-                        [Op.eq]: slug
-                    }
-                }
-            }],
+        const project = await Project.findOne({
+            where: { slug: { [Op.eq]: slug } },
             attributes: ['id', 'name', 'description']
         });
-        return service;
+
+        if (!project) {
+            throw new AppError('Project not found', 404);
+        }
+
+        const services = await Service.findAll({
+            where: { project_id: project.id },
+            attributes: ['id', 'name', 'description']
+        });
+
+        return {
+            project: {
+                id: project.id,
+                name: project.name,
+                description: project.description
+            },
+            services
+        };
     } catch (error) {
         throw error;
     }
 };
 
-const assignProjectToAdmin = async (projectId, adminId) => {
+const getProjectsWithoutAdmin = async (filters = {}) => {
     try {
-        const project = await Project.findByPk(projectId);
-        if (!project) {
-            throw new AppError('Project not found', 404);
+        const { search } = filters;
+        
+        let whereClause = { admin_id: null };
+
+        if (search && search.trim()) {
+            whereClause[Op.or] = [
+                { name: { [Op.iLike]: `%${search.trim()}%` } },
+                { description: { [Op.iLike]: `%${search.trim()}%` } }
+            ];
         }
 
-        const admin = await User.findOne({
+        const projects = await Project.findAll({
+            where: whereClause,
+            attributes: ['id', 'name', 'description'],
+            order: [['created_at', 'DESC']]
+        });
+
+        const message = projects.length === 0 ? 'No unassigned projects found' : null;
+
+        return {
+            projects,
+            message
+        };
+    } catch (error) {
+        throw error;
+    }
+};
+
+const assignProjectToUser = async (userId, projectName) => {
+    try {
+        // Kiểm tra user tồn tại và có role admin
+        const user = await User.findOne({
             where: { 
-                id: adminId,
-                role: ['admin']
+                id: userId,
+                role: 'admin'
             }
         });
-        
-        if (!admin) {
-            throw new AppError('Admin not found or user is not an admin', 404);
+
+        if (!user) {
+            throw new AppError('Admin user not found', 404);
         }
 
-        await Project.update(
-            { admin_id: null },
-            { where: { admin_id: adminId } }
-        );
+        const existingProject = await Project.findOne({
+            where: { admin_id: userId }
+        });
 
-        await project.update({ admin_id: adminId });
+        if (existingProject) {
+            throw new AppError(`This admin is already assigned to project "${existingProject.name}". Please unassign first.`, 400);
+        }
 
-        await admin.update({ project_id: projectId });
+        // Kiểm tra project tồn tại
+        const project = await Project.findOne({
+            where: { 
+                name: projectName.trim(),
+                admin_id: null 
+            }
+        });
 
-        const updatedProject = await Project.findByPk(projectId, {
+        if (!project) {
+            throw new AppError('Project not found or already has an admin', 404);
+        }
+
+        // Gán admin cho project
+        await project.update({ admin_id: userId });
+
+        // Clear cache
+        const keys = await redisClient.keys('projects:*');
+        if (keys.length > 0) {
+            await redisClient.del(keys);
+        }
+
+        // Lấy thông tin project đã cập nhật
+        const updatedProject = await Project.findByPk(project.id, {
             include: [
                 {
                     model: User,
@@ -295,11 +348,6 @@ const assignProjectToAdmin = async (projectId, adminId) => {
                 }
             ]
         });
-
-        const keys = await redisClient.keys("projects:*");
-        if (keys.length > 0) {
-            await redisClient.del(keys);
-        }
 
         return {
             project: {
@@ -320,6 +368,7 @@ module.exports = {
     getAllProjects,
     updateProject,
     deleteProject,
-    assignProjectToAdmin,
-    getServicefromSlug
+    getServicefromSlug,
+    getProjectsWithoutAdmin,
+    assignProjectToUser
 };

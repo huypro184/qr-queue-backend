@@ -11,19 +11,22 @@ const createTicketController = asyncHandler(async (req, res, next) => {
 });
 
 const getTicketsController = asyncHandler(async (req, res, next) => {
-    const tickets = await getTickets(req.user, req.query);
+    const { lineId } = req.params;
+    const { status, search, page, limit } = req.query;
+    const result = await getTickets(lineId, req.user, { status, search, page, limit });
     res.status(200).json({
         status: 'success',
-        data: tickets
+        data: result
     });
 });
 
 const callNextTicketController = asyncHandler(async (req, res, next) => {
     const { lineId } = req.params;
-    const ticket = await callNextTicket(lineId, req.user);
+    const result = await callNextTicket(lineId, req.user);
     res.status(200).json({
         status: 'success',
-        data: ticket
+        message: 'Next ticket called successfully',
+        data: result
     });
 });
 
@@ -32,6 +35,7 @@ const finishTicketController = asyncHandler(async (req, res, next) => {
     const ticket = await finishTicket(ticketId, req.user);
     res.status(200).json({
         status: 'success',
+        message: 'Ticket finished successfully',
         data: ticket
     });
 });
@@ -41,13 +45,14 @@ const cancelTicketController = asyncHandler(async (req, res, next) => {
     const ticket = await cancelTicket(ticketId, req.user);
     res.status(200).json({
         status: 'success',
+        message: 'Ticket cancelled successfully',
         data: ticket
     });
 });
 
 const getTicketByIdController = asyncHandler(async (req, res, next) => {
     const { id } = req.params;
-    const ticket = await getTicketById(id, req.user);
+    const ticket = await getTicketById(id);
     res.status(200).json({
         status: 'success',
         data: ticket

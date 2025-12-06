@@ -1,0 +1,355 @@
+openapi: 3.0.3
+info:
+  title: QR Queue WebSocket API
+  version: 1.0.0
+  description: |
+    ## 📡 Real-time Communication Documentation
+    
+    Hệ thống sử dụng **Socket.io** để cập nhật thông tin vé realtime cho khách hàng.
+    
+    ### Base URL
+    ```
+    http://localhost:3000
+    ```
+    
+    ### Kết nối
+    
+    **CDN:**
+    ```html
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+      const socket = io('http://localhost:3000');
+    </script>
+    ```
+    
+    **NPM:**
+    ```bash
+    npm install socket.io-client
+    ```
+    
+    ```javascript
+    import { io } from 'socket.io-client';
+    const socket = io('http://localhost:3000');
+    ```
+
+servers:
+  - url: http://localhost:3000
+    description: Development server
+
+tags:
+  - name: WebSocket Events
+    description: Socket.io real-time events
+
+paths:
+  /websocket/connect:
+    post:
+      tags:
+        - WebSocket Events
+      summary: Kết nối Socket.io
+      description: |
+        Endpoint này mô tả cách kết nối Socket.io (không phải REST API endpoint thực sự).
+        
+        **Lifecycle Events:**
+        
+        ### `connect` - Kết nối thành công
+        ```javascript
+        socket.on('connect', () => {
+          console.log('Connected:', socket.id);
+          socket.emit('join_ticket', { ticketId: 191 });
+        });
+        ```
+        
+        ### `disconnect` - Mất kết nối
+        ```javascript
+        socket.on('disconnect', (reason) => {
+          console.log('Disconnected:', reason);
+        });
+        ```
+        
+        ### `connect_error` - Lỗi kết nối
+        ```javascript
+        socket.on('connect_error', (error) => {
+          console.error('Error:', error);
+        });
+        ```
+      responses:
+        '200':
+          description: Connection established
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  socketId:
+                    type: string
+                    example: "abc123xyz"
+
+  /websocket/join_ticket:
+    post:
+      tags:
+        - WebSocket Events
+      summary: "[CLIENT → SERVER] Join vào room theo dõi vé"
+      description: |
+        Client gửi event này để tham gia room của một vé cụ thể.
+        
+        **Backend Code:**
+        ```javascript
+        // File: backend/services/websocket.js
+        socket.on('join_ticket', (data) => {
+          const { ticketId } = data;
+          socket.join(`ticket_${ticketId}`);
+          logger.info(`Client ${socket.id} joined ticket_${ticketId}`);
+        });
+        ```
+        
+        **Frontend Code:**
+        ```javascript
+        socket.emit('join_ticket', { ticketId: 191 });
+        ```
+        
+        **Khi nào gọi:**
+        - Ngay sau khi `socket.on('connect')`
+        - Khi khách hàng mở trang xem vé
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ticketId
+              properties:
+                ticketId:
+                  type: integer
+                  description: ID của vé cần theo dõi (lấy từ URL hoặc API response)
+                  example: 191
+      responses:
+        '200':
+          description: Join thành công (không có response trực tiếp, chỉ có log)
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Client abc123xyz joined ticket_191"
+
+  /websocket/ticket_updated:
+    get:
+      tags:
+        - WebSocket Events
+      summary: "[SERVER → CLIENT] Nhận cập nhật thông tin vé"
+      description: |
+        Server tự động gửi event này khi có thay đổi liên quan đến vé.
+        
+        **Khi nào được gửi:**
+        
+        | Sự kiện | Backend Function | Mô tả |
+        |---------|------------------|-------|
+        | Gọi vé tiếp theo | `callNextTicket()` | Vé được gọi + các vé còn lại cập nhật thời gian |
+        | Hủy vé | `cancelTicket()` | Vé bị hủy + các vé còn lại cập nhật thời gian |
+
+        
+        **Backend Code:**
+        ```javascript
+        // File: backend/services/ticketService.js
+        
+        // Case 1: Cập nhật thời gian chờ (function: notifyWaitingTickets)
+        for (const ticket of waitingTickets) {
+          io.to(`ticket_${ticket.id}`).emit('ticket_updated', {
+            ticketId: ticket.id,
+            waiting_time: ticket.waiting_time,
+            status: ticket.status,
+            message: 'Thời gian chờ đã được cập nhật'
+          });
+        }
+        
+        // Case 2: Vé được gọi (function: callNextTicket)
+        io.to(`ticket_${nextTicket.id}`).emit('ticket_updated', {
+          ticketId: nextTicket.id,
+          status: 'serving',
+          message: 'Đến lượt bạn, vui lòng đến quầy'
+        });
+        
+        // Case 3: Vé bị hủy (function: cancelTicket)
+        io.to(`ticket_${ticketId}`).emit('ticket_updated', {
+          ticketId: ticketId,
+          status: 'cancelled',
+          message: 'Vé của bạn đã bị hủy'
+        });
+        ```
+        
+        **Frontend Code:**
+        ```javascript
+        socket.on('ticket_updated', (data) => {
+          console.log('Update:', data);
+          
+          // Cập nhật UI
+          if (data.waiting_time !== undefined) {
+            document.getElementById('waitingTime').textContent = data.waiting_time + ' phút';
+          }
+          
+          if (data.status === 'serving') {
+            alert('🔔 Đến lượt bạn!');
+          }
+          
+          if (data.status === 'cancelled') {
+            alert('❌ Vé đã bị hủy');
+          }
+        });
+        ```
+      parameters:
+        - name: ticketId
+          in: query
+          description: ID của vé (chỉ để minh họa, thực tế là event payload)
+          schema:
+            type: integer
+            example: 191
+      responses:
+        '200':
+          description: Event payload được gửi từ server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketUpdatedEvent'
+              examples:
+                waiting_time_updated:
+                  summary: Thời gian chờ thay đổi
+                  value:
+                    ticketId: 191
+                    waiting_time: 12
+                    status: "waiting"
+                    message: "Thời gian chờ đã được cập nhật"
+                
+                ticket_called:
+                  summary: Vé được gọi phục vụ
+                  value:
+                    ticketId: 191
+                    status: "serving"
+                    message: "Đến lượt bạn, vui lòng đến quầy"
+                
+                ticket_cancelled:
+                  summary: Vé bị hủy
+                  value:
+                    ticketId: 191
+                    status: "cancelled"
+                    message: "Vé của bạn đã bị hủy"
+
+components:
+  schemas:
+    TicketUpdatedEvent:
+      type: object
+      required:
+        - ticketId
+        - status
+        - message
+      properties:
+        ticketId:
+          type: integer
+          description: ID của vé được cập nhật
+          example: 191
+        waiting_time:
+          type: integer
+          nullable: true
+          description: Thời gian chờ dự kiến (phút) - chỉ có khi status = 'waiting'
+          example: 15
+        status:
+          type: string
+          enum:
+            - waiting
+            - serving
+            - done
+            - cancelled
+          description: |
+            Trạng thái vé mới:
+            - `waiting`: Đang chờ
+            - `serving`: Đang phục vụ
+            - `done`: Hoàn thành
+            - `cancelled`: Đã hủy
+          example: "waiting"
+        message:
+          type: string
+          description: Thông báo cho khách hàng
+          example: "Thời gian chờ đã được cập nhật"
+
+    JoinTicketRequest:
+      type: object
+      required:
+        - ticketId
+      properties:
+        ticketId:
+          type: integer
+          description: ID của vé cần theo dõi
+          example: 191
+
+  examples:
+    VanillaJSExample:
+      summary: Vanilla JavaScript Example
+      value: |
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+        </head>
+        <body>
+          <h1>Vé #<span id="ticketNumber">--</span></h1>
+          <p>Thời gian chờ: <span id="waitingTime">--</span> phút</p>
+          
+          <script>
+            const ticketId = 191;
+            const socket = io('http://localhost:3000');
+            
+            socket.on('connect', () => {
+              console.log('Connected:', socket.id);
+              socket.emit('join_ticket', { ticketId });
+            });
+            
+            socket.on('ticket_updated', (data) => {
+              if (data.waiting_time !== undefined) {
+                document.getElementById('waitingTime').textContent = data.waiting_time;
+              }
+              if (data.status === 'serving') {
+                alert('🔔 Đến lượt bạn!');
+              }
+            });
+          </script>
+        </body>
+        </html>
+    
+    ReactExample:
+      summary: React Example
+      value: |
+        import { useEffect, useState } from 'react';
+        import { io } from 'socket.io-client';
+        
+        function TicketView() {
+          const [ticket, setTicket] = useState(null);
+          const ticketId = 191;
+          
+          useEffect(() => {
+            const socket = io('http://localhost:3000');
+            
+            socket.on('connect', () => {
+              socket.emit('join_ticket', { ticketId });
+            });
+            
+            socket.on('ticket_updated', (data) => {
+              setTicket(prev => ({
+                ...prev,
+                waiting_time: data.waiting_time,
+                status: data.status
+              }));
+              
+              if (data.status === 'serving') {
+                alert('🔔 Đến lượt bạn!');
+              }
+            });
+            
+            return () => socket.disconnect();
+          }, [ticketId]);
+          
+          return (
+            <div>
+              <h1>Vé #{ticketId}</h1>
+              <p>Thời gian chờ: {ticket?.waiting_time} phút</p>
+            </div>
+          );
+        }

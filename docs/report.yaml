@@ -311,6 +311,108 @@ paths:
                   message:
                     type: string
 
+  /api/reports/mock/projects-customers-fixed:
+    get:
+      tags: [Reports - Mock]
+      summary: Get mock projects customer stats (fixed data)
+      description: |
+        Returns fixed mock customer statistics for 2 sample projects.
+        **This is for frontend testing only - no authentication required.**
+        
+        Data is always the same on each request (matches the sample data exactly):
+        - Vincom Center: 7 days of fixed customer counts (34, 51, 28, 45, 38, 42, 39)
+        - Aeon Mall: 7 days of fixed customer counts (62, 75, 82, 68, 71, 79, 85)
+        
+        This endpoint is useful for:
+        - Consistent UI testing
+        - Demo presentations
+        - Snapshot testing
+        - Visual regression testing
+      responses:
+        "200":
+          description: Fixed mock data returned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  results:
+                    type: integer
+                    description: Number of projects returned (always 2)
+                    example: 2
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        projectId:
+                          type: integer
+                          description: Mock project ID
+                          example: 1
+                        projectName:
+                          type: string
+                          description: Mock project name
+                          example: "Vincom Center"
+                        dailyStats:
+                          type: array
+                          description: Daily customer statistics (always 7 days)
+                          items:
+                            type: object
+                            properties:
+                              _id:
+                                type: string
+                                format: date
+                                description: Date in YYYY-MM-DD format
+                                example: "2025-10-25"
+                              totalCustomers:
+                                type: integer
+                                description: Fixed number of customers for this day
+                                example: 34
+              examples:
+                fixedData:
+                  summary: Fixed mock data (always the same)
+                  value:
+                    status: success
+                    results: 2
+                    data:
+                      - projectId: 1
+                        projectName: "Vincom Center"
+                        dailyStats:
+                          - _id: "2025-10-25"
+                            totalCustomers: 34
+                          - _id: "2025-10-26"
+                            totalCustomers: 51
+                          - _id: "2025-10-27"
+                            totalCustomers: 28
+                          - _id: "2025-10-28"
+                            totalCustomers: 45
+                          - _id: "2025-10-29"
+                            totalCustomers: 38
+                          - _id: "2025-10-30"
+                            totalCustomers: 42
+                          - _id: "2025-10-31"
+                            totalCustomers: 39
+                      - projectId: 2
+                        projectName: "Aeon Mall"
+                        dailyStats:
+                          - _id: "2025-10-25"
+                            totalCustomers: 62
+                          - _id: "2025-10-26"
+                            totalCustomers: 75
+                          - _id: "2025-10-27"
+                            totalCustomers: 82
+                          - _id: "2025-10-28"
+                            totalCustomers: 68
+                          - _id: "2025-10-29"
+                            totalCustomers: 71
+                          - _id: "2025-10-30"
+                            totalCustomers: 79
+                          - _id: "2025-10-31"
+                            totalCustomers: 85
+
 components:
   securitySchemes:
     bearerAuth:

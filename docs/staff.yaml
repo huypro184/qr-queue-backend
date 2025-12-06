@@ -1,0 +1,522 @@
+openapi: 3.0.3
+info:
+  title: QR Queue Backend - Staff Management
+  version: "1.0.0"
+servers:
+  - url: http://localhost:3000
+    description: Local dev
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/users/staff:
+    get:
+      tags: [Staff]
+      summary: Get all staff in admin's project
+      description: |
+        Admin can view all staff members in their project.
+        Supports search by name, email, or phone.
+        Returns paginated results.
+        
+        **Note:** Does NOT return `message` or `project` fields - only `staff` array and `pagination`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          description: Search term for staff name, email, or phone
+          schema:
+            type: string
+          example: "nguyen"
+        - name: page
+          in: query
+          description: Page number (default 1)
+          schema:
+            type: integer
+            default: 1
+          example: 1
+        - name: limit
+          in: query
+          description: Items per page (default 10)
+          schema:
+            type: integer
+            default: 10
+          example: 10
+      responses:
+        "200":
+          description: Staff retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Staff retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      staff:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/StaffUser'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+              examples:
+                withStaff:
+                  summary: Staff found
+                  value:
+                    status: success
+                    message: Staff retrieved successfully
+                    data:
+                      staff:
+                        - id: 10
+                          name: "Nguyễn Văn A"
+                          email: "a@example.com"
+                          phone: "0123456789"
+                          role: "staff"
+                          status: "active"
+                          project_id: 5
+                          created_at: "2025-11-01T10:00:00.000Z"
+                        - id: 11
+                          name: "Trần Thị B"
+                          email: "b@example.com"
+                          phone: "0987654321"
+                          role: "staff"
+                          status: "active"
+                          project_id: 5
+                          created_at: "2025-11-02T10:00:00.000Z"
+                      pagination:
+                        total: 25
+                        page: 1
+                        limit: 10
+                        totalPages: 3
+                        hasNext: true
+                        hasPrev: false
+                noStaff:
+                  summary: No staff found (empty array)
+                  value:
+                    status: success
+                    message: Staff retrieved successfully
+                    data:
+                      staff: []
+                      pagination:
+                        total: 0
+                        page: 1
+                        limit: 10
+                        totalPages: 0
+                        hasNext: false
+                        hasPrev: false
+        "404":
+          description: Admin has no project assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: You do not have a project assigned
+        "403":
+          description: Access denied - only admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: You do not have permission to perform this action
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+  /api/users/staff/{id}:
+    patch:
+      tags: [Staff]
+      summary: Update staff information
+      description: |
+        Admin can update staff members in their project.
+        
+        **Allowed fields to update:**
+        - `name`: Staff member's name (must not be empty)
+        - `email`: Staff member's email (must be unique, valid format)
+        - `phone`: Staff member's phone (must be unique if provided, can be null)
+        
+        **Restrictions:**
+        - Cannot change role or project_id
+        - Admin can only update staff in their own project
+        - Staff must have status 'active'
+        - At least one field must be provided
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Staff user ID
+          schema:
+            type: integer
+          example: 10
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Staff member's name
+                  example: "Nguyễn Văn A (Updated)"
+                email:
+                  type: string
+                  format: email
+                  description: Staff member's email
+                  example: "a_updated@example.com"
+                phone:
+                  type: string
+                  nullable: true
+                  description: Staff member's phone number
+                  example: "0987654321"
+            examples:
+              updateAll:
+                summary: Update all fields
+                value:
+                  name: "Nguyễn Văn A (Updated)"
+                  email: "a_updated@example.com"
+                  phone: "0987654321"
+              updateNameOnly:
+                summary: Update name only
+                value:
+                  name: "New Name"
+              updateEmailPhone:
+                summary: Update email and phone
+                value:
+                  email: "newemail@example.com"
+                  phone: "0123456789"
+              removePhone:
+                summary: Remove phone number
+                value:
+                  phone: null
+      responses:
+        "200":
+          description: Staff updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Staff updated successfully
+                  data:
+                    type: object
+                    properties:
+                      staff:
+                        $ref: '#/components/schemas/StaffUser'
+              example:
+                status: success
+                message: Staff updated successfully
+                data:
+                  staff:
+                    id: 10
+                    name: "Nguyễn Văn A (Updated)"
+                    email: "a_updated@example.com"
+                    phone: "0987654321"
+                    role: "staff"
+                    status: "active"
+                    project_id: 5
+                    created_at: "2025-11-01T10:00:00.000Z"
+        "400":
+          description: Bad request - validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                emptyName:
+                  summary: Name is empty or whitespace
+                  value:
+                    status: fail
+                    message: Please provide a valid name
+                invalidEmail:
+                  summary: Invalid email format
+                  value:
+                    status: fail
+                    message: Please provide a valid email
+                noFields:
+                  summary: No fields to update
+                  value:
+                    status: fail
+                    message: No valid fields to update
+        "404":
+          description: Staff not found or admin has no project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                staffNotFound:
+                  summary: Staff not found in project
+                  value:
+                    status: fail
+                    message: Staff not found in your project
+                noProject:
+                  summary: Admin has no project
+                  value:
+                    status: fail
+                    message: You do not have a project assigned
+        "409":
+          description: Duplicate email or phone
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                duplicateEmail:
+                  summary: Email already exists
+                  value:
+                    status: fail
+                    message: Email already exists
+                duplicatePhone:
+                  summary: Phone number already exists
+                  value:
+                    status: fail
+                    message: Phone number already exists
+        "403":
+          description: Access denied - only admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: You do not have permission to perform this action
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Staff]
+      summary: Delete staff member (soft delete)
+      description: |
+        Admin can delete staff members in their project.
+        
+        **Soft delete logic:**
+        - Sets `status` to 'inactive' instead of removing from database
+        - Staff data is preserved for audit purposes
+        - Staff will no longer appear in active staff lists
+        
+        **Restrictions:**
+        - Admin can only delete staff in their own project
+        - Admin cannot delete themselves
+        - Staff must exist and have status 'active'
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Staff user ID to delete
+          schema:
+            type: integer
+          example: 10
+      responses:
+        "200":
+          description: Staff deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Staff deleted successfully
+                  data:
+                    type: object
+                    properties:
+                      deletedStaff:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                            example: 10
+                          name:
+                            type: string
+                            example: "Nguyễn Văn A"
+                          email:
+                            type: string
+                            example: "a@example.com"
+                          role:
+                            type: string
+                            example: "staff"
+              example:
+                status: success
+                message: Staff deleted successfully
+                data:
+                  deletedStaff:
+                    id: 10
+                    name: "Nguyễn Văn A"
+                    email: "a@example.com"
+                    role: "staff"
+        "400":
+          description: Cannot delete own account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: You cannot delete your own account
+        "404":
+          description: Staff not found or admin has no project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                staffNotFound:
+                  summary: Staff not found in project
+                  value:
+                    status: fail
+                    message: Staff not found in your project
+                noProject:
+                  summary: Admin has no project
+                  value:
+                    status: fail
+                    message: You do not have a project assigned
+        "403":
+          description: Access denied - only admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: You do not have permission to perform this action
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    StaffUser:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Staff user ID
+          example: 10
+        name:
+          type: string
+          description: Staff member's full name
+          example: "Nguyễn Văn A"
+        email:
+          type: string
+          format: email
+          description: Staff member's email address
+          example: "a@example.com"
+        phone:
+          type: string
+          nullable: true
+          description: Staff member's phone number
+          example: "0123456789"
+        role:
+          type: string
+          enum: [staff]
+          description: User role (always 'staff' for this endpoint)
+          example: "staff"
+        status:
+          type: string
+          enum: [active, inactive]
+          description: Account status
+          example: "active"
+        project_id:
+          type: integer
+          description: ID of the project this staff belongs to
+          example: 5
+        created_at:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+          example: "2025-11-01T10:00:00.000Z"
+      required:
+        - id
+        - name
+        - email
+        - role
+        - status
+        - project_id
+        - created_at
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of items
+          example: 25
+        page:
+          type: integer
+          description: Current page number
+          example: 1
+        limit:
+          type: integer
+          description: Items per page
+          example: 10
+        totalPages:
+          type: integer
+          description: Total number of pages
+          example: 3
+        hasNext:
+          type: boolean
+          description: Whether there is a next page
+          example: true
+        hasPrev:
+          type: boolean
+          description: Whether there is a previous page
+          example: false
+      required:
+        - total
+        - page
+        - limit
+        - totalPages
+        - hasNext
+        - hasPrev
+
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [fail, error]
+          example: fail
+        message:
+          type: string
+          example: Error message
+      required:
+        - status
+        - message
+
+  responses:
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            status: error
+            message: Something went wrong!

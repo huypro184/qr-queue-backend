@@ -1,9 +1,8 @@
-const { createProject, getAllProjects, updateProject, deleteProject, getServicefromSlug, assignProjectToAdmin } = require('../services/projectService');
+const { createProject, getAllProjects, updateProject, deleteProject, getServicefromSlug, assignProjectToUser, getProjectsWithoutAdmin } = require('../services/projectService');
 const { asyncHandler } = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 
 const createNewProject = asyncHandler(async (req, res, next) => {
-
     const project = await createProject(req.body, req.user);
     
     res.status(201).json({
@@ -50,7 +49,7 @@ const deleteProjectById = asyncHandler(async (req, res, next) => {
 
 const getService = asyncHandler(async (req, res, next) => {
     const { slug } = req.params;
-    const service = await getServicefromSlug(req.user, slug);
+    const service = await getServicefromSlug(slug);
 
     res.status(200).json({
         status: 'success',
@@ -59,15 +58,10 @@ const getService = asyncHandler(async (req, res, next) => {
     });
 });
 
-const assignProjectAdmin = asyncHandler(async (req, res, next) => {
-    const { projectId } = req.params;
-    const { admin_id } = req.body;
+const assignProjectToUserController = asyncHandler(async (req, res, next) => {
+    const { userId, projectName } = req.body;
 
-    if (!admin_id) {
-        throw new AppError('Please provide admin_id', 400);
-    }
-
-    const result = await assignProjectToAdmin(projectId, admin_id);
+    const result = await assignProjectToUser(userId, projectName);
 
     res.status(200).json({
         status: 'success',
@@ -76,11 +70,24 @@ const assignProjectAdmin = asyncHandler(async (req, res, next) => {
     });
 });
 
+const getProjectsWithoutAdminController = asyncHandler(async (req, res, next) => {
+    const { search } = req.query;
+
+    const result = await getProjectsWithoutAdmin({ search });
+
+    res.status(200).json({
+        status: 'success',
+        message: 'Unassigned projects retrieved successfully',
+        data: result
+    });
+});
+
 module.exports = {
     createNewProject,
     getProjects,
     updateProjectById,
+    getProjectsWithoutAdminController,
     deleteProjectById,
     getService,
-    assignProjectAdmin
+    assignProjectToUserController
 };

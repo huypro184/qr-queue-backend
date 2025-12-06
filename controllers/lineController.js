@@ -15,7 +15,8 @@ const createNewLine = asyncHandler(async (req, res, next) => {
 });
 
 const getAllLines = asyncHandler(async (req, res, next) => {
-    const result = await getLines(req.user, req.query);
+    const serviceId = req.params.serviceId;
+    const result = await getLines(serviceId, req.user, req.query);
     res.status(200).json({
         status: 'success',
         message: 'Lines retrieved successfully',

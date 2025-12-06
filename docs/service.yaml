@@ -1,0 +1,586 @@
+openapi: 3.0.3
+info:
+  title: QR Queue Backend - Service Management
+  version: "1.0.0"
+  description: |
+    Service management APIs for admin and staff users.
+    
+    **Access Control:**
+    - **Admin**: Full CRUD access (create, read, update, delete)
+    - **Staff**: Read-only access (get all services)
+
+servers:
+  - url: http://localhost:3000
+    description: Local dev
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/services:
+    post:
+      tags: [Services]
+      summary: Create a new service
+      description: |
+        Admin and staff can create a new service in their project.
+        
+        **Restrictions:**
+        - Service name must be unique within the project
+        - Service name cannot be empty
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Service name (must be unique in project, cannot be empty)
+                  example: "Tư vấn khách hàng"
+                description:
+                  type: string
+                  nullable: true
+                  description: Service description (optional)
+                  example: "Hỗ trợ và tư vấn khách hàng"
+            examples:
+              withDescription:
+                summary: Create service with description
+                value:
+                  name: "Tư vấn khách hàng"
+                  description: "Hỗ trợ và tư vấn khách hàng"
+              withoutDescription:
+                summary: Create service without description
+                value:
+                  name: "Kế toán"
+      responses:
+        "201":
+          description: Service created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Service created successfully
+                  data:
+                    type: object
+                    properties:
+                      service:
+                        $ref: '#/components/schemas/Service'
+              example:
+                status: success
+                message: Service created successfully
+                data:
+                  service:
+                    id: 15
+                    name: "Tư vấn khách hàng"
+                    description: "Hỗ trợ và tư vấn khách hàng"
+                    project_id: 5
+                    created_at: "2025-11-10T10:00:00.000Z"
+        "400":
+          description: Bad request - validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Service name is required
+        "403":
+          description: User has no project assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: You have not been assigned to any project. Please contact admin.
+        "409":
+          description: Service name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Service name already exists in this project
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+    get:
+      tags: [Services]
+      summary: Get all services in user's project
+      description: |
+        Get all services in the current user's project (admin or staff).
+        
+        **Access:**
+        - **Admin**: Can view all services in their project
+        - **Staff**: Can view all services in their project
+        
+        **Features:**
+        - Search by service name or description
+        - Pagination support
+        - Returns message indicating number of services found
+        
+        **Note:** Does NOT include lines data or project_id in response
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          description: Search term for service name or description (case-insensitive)
+          schema:
+            type: string
+          example: "tư vấn"
+        - name: page
+          in: query
+          description: Page number (default 1)
+          schema:
+            type: integer
+            default: 1
+          example: 1
+        - name: limit
+          in: query
+          description: Items per page (default 10)
+          schema:
+            type: integer
+            default: 10
+          example: 10
+      responses:
+        "200":
+          description: Services retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Services retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      services:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ServiceListItem'
+                      message:
+                        type: string
+                        description: Message indicating number of services found
+                        example: "3 services retrieved successfully"
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+              examples:
+                multipleServices:
+                  summary: Multiple services found
+                  value:
+                    status: success
+                    message: Services retrieved successfully
+                    data:
+                      services:
+                        - id: 1
+                          name: "Tư vấn khách hàng"
+                          description: "Hỗ trợ và tư vấn khách hàng"
+                          created_at: "2025-11-01T10:00:00.000Z"
+                        - id: 2
+                          name: "Kế toán"
+                          description: "Dịch vụ kế toán"
+                          created_at: "2025-11-02T10:00:00.000Z"
+                      message: "2 services retrieved successfully"
+                      pagination:
+                        total: 2
+                        page: 1
+                        limit: 10
+                        totalPages: 1
+                        hasNext: false
+                        hasPrev: false
+                singleService:
+                  summary: Single service found
+                  value:
+                    status: success
+                    message: Services retrieved successfully
+                    data:
+                      services:
+                        - id: 1
+                          name: "Tư vấn khách hàng"
+                          description: "Hỗ trợ và tư vấn khách hàng"
+                          created_at: "2025-11-01T10:00:00.000Z"
+                      message: "1 service retrieved successfully"
+                      pagination:
+                        total: 1
+                        page: 1
+                        limit: 10
+                        totalPages: 1
+                        hasNext: false
+                        hasPrev: false
+                noServices:
+                  summary: No services found
+                  value:
+                    status: success
+                    message: Services retrieved successfully
+                    data:
+                      services: []
+                      message: "No services found"
+                      pagination:
+                        total: 0
+                        page: 1
+                        limit: 10
+                        totalPages: 0
+                        hasNext: false
+                        hasPrev: false
+        "403":
+          description: User has no project assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: You have not been assigned to any project. Please contact admin.
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+  /api/services/{id}:
+    patch:
+      tags: [Services]
+      summary: Update service information
+      description: |
+        Admin can update service information in their project.
+        
+        **Restrictions:**
+        - Only admin can update services
+        - Service must exist in user's project
+        - Service name must be unique within the project (if changed)
+        
+        **Updatable fields:**
+        - `name`: Service name
+        - `description`: Service description
+        - `average_service_time`: Average service time in minutes
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Service ID to update
+          schema:
+            type: integer
+          example: 15
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Service name (must be unique in project)
+                  example: "Tư vấn khách hàng VIP"
+                description:
+                  type: string
+                  nullable: true
+                  description: Service description
+                  example: "Hỗ trợ khách hàng VIP"
+                average_service_time:
+                  type: integer
+                  nullable: true
+                  description: Average service time in minutes
+                  example: 15
+            examples:
+              updateAll:
+                summary: Update all fields
+                value:
+                  name: "Tư vấn khách hàng VIP"
+                  description: "Hỗ trợ khách hàng VIP"
+                  average_service_time: 15
+              updateNameOnly:
+                summary: Update name only
+                value:
+                  name: "Kế toán nâng cao"
+              updateDescriptionOnly:
+                summary: Update description only
+                value:
+                  description: "Dịch vụ kế toán chuyên nghiệp"
+              updateServiceTime:
+                summary: Update average service time
+                value:
+                  average_service_time: 20
+      responses:
+        "200":
+          description: Service updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Service updated successfully
+                  data:
+                    type: object
+                    properties:
+                      service:
+                        $ref: '#/components/schemas/Service'
+              example:
+                status: success
+                message: Service updated successfully
+                data:
+                  service:
+                    id: 15
+                    name: "Tư vấn khách hàng VIP"
+                    description: "Hỗ trợ khách hàng VIP"
+                    project_id: 5
+                    average_service_time: 15
+                    created_at: "2025-11-10T10:00:00.000Z"
+        "403":
+          description: User has no project assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: You have not been assigned to any project. Please contact admin.
+        "404":
+          description: Service not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Service not found
+        "409":
+          description: Service name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Service name already exists in this project
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Services]
+      summary: Delete service
+      description: |
+        Admin can delete a service from their project.
+        
+        **Restrictions:**
+        - Only admin can delete services
+        - Service must exist in user's project
+        
+        **Note:** This is a hard delete (permanently removes from database)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Service ID to delete
+          schema:
+            type: integer
+          example: 15
+      responses:
+        "200":
+          description: Service deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Service deleted successfully
+                  data:
+                    type: object
+                    properties:
+                      deletedService:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                            example: 15
+                          name:
+                            type: string
+                            example: "Tư vấn khách hàng"
+              example:
+                status: success
+                message: Service deleted successfully
+                data:
+                  deletedService:
+                    id: 15
+                    name: "Tư vấn khách hàng"
+        "403":
+          description: User has no project assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: You have not been assigned to any project. Please contact admin.
+        "404":
+          description: Service not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                status: fail
+                message: Service not found
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Service:
+      type: object
+      description: Full service object with all fields
+      properties:
+        id:
+          type: integer
+          description: Service ID
+          example: 15
+        name:
+          type: string
+          description: Service name
+          example: "Tư vấn khách hàng"
+        description:
+          type: string
+          nullable: true
+          description: Service description
+          example: "Hỗ trợ và tư vấn khách hàng"
+        project_id:
+          type: integer
+          description: Project ID that this service belongs to
+          example: 5
+        average_service_time:
+          type: integer
+          nullable: true
+          description: Average service time in minutes
+          example: 15
+        created_at:
+          type: string
+          format: date-time
+          description: Service creation timestamp
+          example: "2025-11-10T10:00:00.000Z"
+      required:
+        - id
+        - name
+        - project_id
+        - created_at
+
+    ServiceListItem:
+      type: object
+      description: Service object in list (limited fields)
+      properties:
+        id:
+          type: integer
+          description: Service ID
+          example: 1
+        name:
+          type: string
+          description: Service name
+          example: "Tư vấn khách hàng"
+        description:
+          type: string
+          nullable: true
+          description: Service description
+          example: "Hỗ trợ và tư vấn khách hàng"
+        created_at:
+          type: string
+          format: date-time
+          description: Service creation timestamp
+          example: "2025-11-01T10:00:00.000Z"
+      required:
+        - id
+        - name
+        - created_at
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of items
+          example: 25
+        page:
+          type: integer
+          description: Current page number
+          example: 1
+        limit:
+          type: integer
+          description: Items per page
+          example: 10
+        totalPages:
+          type: integer
+          description: Total number of pages
+          example: 3
+        hasNext:
+          type: boolean
+          description: Whether there is a next page
+          example: true
+        hasPrev:
+          type: boolean
+          description: Whether there is a previous page
+          example: false
+      required:
+        - total
+        - page
+        - limit
+        - totalPages
+        - hasNext
+        - hasPrev
+
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [fail, error]
+          example: fail
+        message:
+          type: string
+          example: Error message
+      required:
+        - status
+        - message
+
+  responses:
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            status: error
+            message: Something went wrong!
