@@ -238,6 +238,28 @@ const deleteProject = async (projectId, currentUser) => {
 
 const getServicefromSlug = async (slug) => {
     try {
+        // const project = await Project.findOne({
+        //     where: { slug: { [Op.eq]: slug } },
+        //     attributes: ['id', 'name', 'description']
+        // });
+
+        // if (!project) {
+        //     throw new AppError('Project not found', 404);
+        // }
+
+        // const services = await Service.findAll({
+        //     where: { project_id: project.id },
+        //     attributes: ['id', 'name', 'description']
+        // });
+
+        // return {
+        //     project: {
+        //         id: project.id,
+        //         name: project.name,
+        //         description: project.description
+        //     },
+        //     services
+        // };
         const project = await Project.findOne({
             where: { slug: { [Op.eq]: slug } },
             attributes: ['id', 'name', 'description']
@@ -249,8 +271,22 @@ const getServicefromSlug = async (slug) => {
 
         const services = await Service.findAll({
             where: { project_id: project.id },
-            attributes: ['id', 'name', 'description']
+            attributes: ['id', 'name', 'description'],
+            include: [
+                {
+                    model: require('../models').Line,
+                    as: 'lines',
+                    attributes: ['id'],
+                    required: true
+                }
+            ]
         });
+
+        const formattedServices = services.map(service => ({
+            id: service.id,
+            name: service.name,
+            description: service.description
+        }));
 
         return {
             project: {
@@ -258,7 +294,7 @@ const getServicefromSlug = async (slug) => {
                 name: project.name,
                 description: project.description
             },
-            services
+            services: formattedServices
         };
     } catch (error) {
         throw error;
