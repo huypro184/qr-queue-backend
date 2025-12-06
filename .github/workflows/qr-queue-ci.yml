@@ -1,4 +1,4 @@
-name: QR Queue Full CI/CD
+name: CI/CD
 
 on:
   push:
