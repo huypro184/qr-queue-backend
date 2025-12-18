@@ -1,4 +1,4 @@
-const { User, Project, Service } = require('../models');
+const { User, Project, Service, sequelize } = require('../models');
 const { get } = require('../routes/userRoutes');
 const AppError = require('../utils/AppError');
 const { generateProjectQRCode } = require('../utils/qrcode');
@@ -191,6 +191,8 @@ const updateProject = async (projectId, data, currentUser) => {
 };
 
 const deleteProject = async (projectId, currentUser) => {
+    const transaction = await sequelize.transaction();
+    
     try {
         const existingProject = await Project.findByPk(projectId);
         if (!existingProject) {
@@ -201,37 +203,78 @@ const deleteProject = async (projectId, currentUser) => {
             throw new AppError('You do not have permission to delete this project', 403);
         }
 
-        const usersInProject = await User.count({
-            where: { project_id: projectId }
+        // Lấy tất cả services của project
+        const services = await Service.findAll({
+            where: { project_id: projectId },
+            attributes: ['id']
         });
 
-        if (usersInProject > 0) {
-            throw new AppError('Cannot delete project that has users. Please remove all users first.', 400);
+        const serviceIds = services.map(s => s.id);
+
+        if (serviceIds.length > 0) {
+            // Lấy tất cả lines của các services
+            const { Line } = require('../models');
+            const lines = await Line.findAll({
+                where: { service_id: { [Op.in]: serviceIds } },
+                attributes: ['id']
+            });
+
+            const lineIds = lines.map(l => l.id);
+
+            if (lineIds.length > 0) {
+                // 1. Xóa tất cả tickets trong các lines
+                const { Ticket } = require('../models');
+                await Ticket.destroy({
+                    where: { line_id: { [Op.in]: lineIds } },
+                    transaction
+                });
+
+                // 2. Xóa tất cả lines
+                await Line.destroy({
+                    where: { id: { [Op.in]: lineIds } },
+                    transaction
+                });
+            }
+
+            // 3. Xóa tất cả services
+            await Service.destroy({
+                where: { id: { [Op.in]: serviceIds } },
+                transaction
+            });
         }
 
-        const servicesInProject = await Service.count({
-            where: { project_id: projectId }
+        // 4. Cập nhật users: set project_id = null cho những user thuộc project này
+        await User.destroy({
+            where: { 
+                [Op.or]: [
+                    { project_id: projectId },
+                    { id: existingProject.admin_id }
+                ]
+            },
+            transaction
         });
 
-        if (servicesInProject > 0) {
-            throw new AppError('Cannot delete project that has services. Please remove all services first.', 400);
-        }
-
+        // 5. Xóa project
         await Project.destroy({
-            where: { id: projectId }
+            where: { id: projectId },
+            transaction
         });
 
+        await transaction.commit();
         await clearProjectCache();
 
         return {
-            message: 'Project deleted successfully',
+            message: 'Project and all related data deleted successfully',
             deletedProject: {
                 id: existingProject.id,
                 name: existingProject.name
             }
         };
     } catch (error) {
-        throw error;
+        await transaction.rollback();
+        console.error('[deleteProject] Error:', error);
+        if (error instanceof AppError) throw error;
+        throw new AppError('Unable to delete project', 500);
     }
 };
 

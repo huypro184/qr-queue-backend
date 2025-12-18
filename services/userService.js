@@ -114,7 +114,8 @@ const getAllUsers = async (currentUser, filters = {}) => {
         
         let whereClause = {
             status: 'active',
-            id: { [Op.not]: currentUser.id }
+            id: { [Op.not]: currentUser.id },
+            role: { [Op.not]: 'customer' }
         };
 
         if (role) {

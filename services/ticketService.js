@@ -168,17 +168,53 @@ const getTickets = async (lineId, currentUser, filters = {}) => {
                     attributes: ['id', 'name', 'phone'],
                     where: Object.keys(userWhere).length ? userWhere : undefined,
                     required: userRequired
+                },
+                {
+                    model: Line,
+                    as: 'line',
+                    attributes: ['id', 'name']
                 }
             ],
-            order: [['joined_at', 'DESC']],
+            order: [['joined_at', 'ASC']],
             limit: parseInt(limit),
             offset: parseInt(offset),
             distinct: true,
             subQuery: false
         });
 
+        // Lấy tất cả tickets trong line để tính index
+        const allTicketsInLine = await Ticket.findAll({
+            where: { line_id: lineId },
+            order: [['id', 'ASC']],
+            attributes: ['id']
+        });
+
+        // Map tickets với queueNumber
+        const ticketsWithQueueNumber = tickets.map(ticket => {
+            const ticketIndex = allTicketsInLine.findIndex(t => t.id === ticket.id);
+            const queueNumber = `${line.name.substring(0, 1).toUpperCase()}${String(ticketIndex + 1).padStart(3, '0')}`;
+            
+            return {
+                id: ticket.id,
+                queueNumber: queueNumber,
+                service_id: ticket.service_id,
+                line_id: ticket.line_id,
+                line_name: ticket.line?.name,
+                user_id: ticket.user_id,
+                name: ticket.user?.name,
+                phone: ticket.user?.phone,
+                status: ticket.status,
+                joined_at: ticket.joined_at,
+                served_at: ticket.served_at,
+                finished_at: ticket.finished_at,
+                waiting_time: ticket.waiting_time,
+                queue_length_at_join: ticket.queue_length_at_join,
+                created_at: ticket.created_at
+            };
+        });
+
         return {
-            tickets,
+            tickets: ticketsWithQueueNumber,
             pagination: {
                 total: count,
                 page: parseInt(page),
@@ -192,89 +228,6 @@ const getTickets = async (lineId, currentUser, filters = {}) => {
         throw error;
     }
 };
-
-// const getTickets = async (lineId, currentUser, filters = {}) => {
-//     try {
-//         const { status, search, page = 1, limit = 10 } = filters;
-//         let whereClause = { line_id: lineId };
-
-//         // Nếu có search, tìm user_ids trước
-//         let userIds = [];
-//         if (search) {
-//             const users = await User.findAll({
-//                 where: {
-//                     [Op.or]: [
-//                         { name: { [Op.iLike]: `%${search}%` } },
-//                         { phone: { [Op.iLike]: `%${search}%` } }
-//                     ]
-//                 },
-//                 attributes: ['id']
-//             });
-//             userIds = users.map(user => user.id);
-            
-//             // Thêm điều kiện user_id phải nằm trong danh sách user tìm được
-//             if (userIds.length > 0) {
-//                 whereClause.user_id = { [Op.in]: userIds };
-//             } else {
-//                 // Nếu không tìm thấy user nào khớp, trả về mảng rỗng
-//                 whereClause.user_id = { [Op.in]: [] };
-//             }
-//         }
-
-//         const line = await Line.findOne({
-//             where: { id: lineId },
-//             include: [{
-//                 model: Service,
-//                 as: 'service',
-//                 required: true,
-//                 include: [{
-//                     model: Project,
-//                     as: 'project',
-//                     required: true,
-//                     where: currentUser.role === 'admin'
-//                         ? { admin_id: currentUser.id }
-//                         : { id: currentUser.project_id }
-//                 }]
-//             }]
-//         });
-//         if (!line) {
-//             throw new AppError('Line not found or does not belong to your project', 404);
-//         }
-
-//         const offset = (page - 1) * limit;
-
-//         const { count, rows: tickets } = await Ticket.findAndCountAll({
-//             where: whereClause,
-//             include: [
-//                 {
-//                     model: User,
-//                     as: 'user',
-//                     attributes: ['id', 'name', 'phone'],
-//                     required: false
-//                 }
-//             ],
-//             order: [['joined_at', 'DESC']],
-//             limit: parseInt(limit),
-//             offset: parseInt(offset),
-//             distinct: true,
-//             subQuery: false
-//         });
-
-//         return {
-//             tickets,
-//             pagination: {
-//                 total: count,
-//                 page: parseInt(page),
-//                 limit: parseInt(limit),
-//                 totalPages: Math.ceil(count / limit),
-//                 hasNext: page < Math.ceil(count / limit),
-//                 hasPrev: page > 1
-//             }
-//         };
-//     } catch (error) {
-//         throw error;
-//     }
-// };
 
 const callNextTicket = async (lineId, currentUser) => {
     try {
@@ -367,8 +320,8 @@ const cancelTicket = async (ticketId, currentUser) => {
         if (!ticket) {
             throw new AppError('Ticket not found', 404);
         }
-        if (ticket.status !== 'waiting') {
-            throw new AppError('Ticket is not waiting', 400);
+        if (ticket.status !== 'waiting' && ticket.status !== 'serving') {
+            throw new AppError('Ticket is not waiting or serving', 400);
         }
 
         ticket.status = 'cancelled';
@@ -391,66 +344,6 @@ const cancelTicket = async (ticketId, currentUser) => {
     }
 };
 
-// const getTicketById = async (ticketId) => {
-//     try {
-//         const ticket = await Ticket.findOne({
-//             where: { id: ticketId },
-//             include: [
-//                 {
-//                     model: Line,
-//                     as: 'line',
-//                     attributes: ['name'],
-//                     required: true,
-//                     include: [
-//                         {
-//                             model: Service,
-//                             as: 'service',
-//                             attributes: [],
-//                             required: true,
-//                             include: [
-//                                 {
-//                                     model: Project,
-//                                     as: 'project',
-//                                     attributes: [],
-//                                     required: true
-//                                 }
-//                             ]
-//                         }
-//                     ]
-//                 },
-//                 {
-//                     model: User,
-//                     as: 'user',
-//                     attributes: ['id', 'name', 'phone']
-//                 }
-//             ]
-//         });
-
-//         if (!ticket) {
-//             throw new AppError('Ticket not found or does not belong to your project', 404);
-//         }
-
-//         return {
-//             id: ticket.id,
-//             line_id: ticket.line_id,
-//             line_name: ticket.line ? ticket.line.name : null,
-//             user_id: ticket.user ? ticket.user.id : null,
-//             name: ticket.user ? ticket.user.name : null,
-//             phone: ticket.user ? ticket.user.phone : null,
-//             status: ticket.status,
-//             joined_at: ticket.joined_at,
-//             served_at: ticket.served_at,
-//             finished_at: ticket.finished_at,
-//             waiting_time: ticket.waiting_time,
-//             queue_length_at_join: ticket.queue_length_at_join,
-//             created_at: ticket.created_at
-//         };
-//     } catch (error) {
-//         throw error;
-//     }
-// };
-
-// ...existing code...
 const getTicketById = async (ticketId) => {
     try {
         const ticket = await Ticket.findByPk(ticketId, {

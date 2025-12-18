@@ -10,7 +10,7 @@ const generateProjectQRCode = async (
     feDomain = "https://smartqueue.top",
     feDomainDev = "http://localhost:4000"
 ) => {
-    const url = `${feDomain}/projects/${slug}`;
+    const url = `${feDomainDev}/projects/${slug}`;
     
     return await QRCode.toDataURL(url);
 };

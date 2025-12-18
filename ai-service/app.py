@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Load model
-model = joblib.load("random_forest_waiting_time.pkl")
+model = joblib.load("best_wait_time_model.pkl")
 logger.info("Model loaded successfully")
 
 # Connect to RabbitMQ
