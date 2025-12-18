@@ -61,4 +61,4 @@ jobs:
             docker compose up -d qr-queue-backend
 
             # 5. Dọn dẹp image rác cho sạch ổ cứng
-            docker image prune -f
+            docker image prune -f 
