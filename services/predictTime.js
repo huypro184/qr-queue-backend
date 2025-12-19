@@ -76,7 +76,7 @@ async function predictWaitingTime(lineId) {
         // Cách tối ưu: Update hàng loạt (Bulk Update) thay vì loop await
         const updatePromises = predictions.map(pred => {
             return Ticket.update(
-                { estimated_wait_time: pred.predicted_wait_time },
+                { waiting_time: Math.round(pred.predicted_wait_time) },
                 { where: { id: pred.ticketId } }
             );
         });
