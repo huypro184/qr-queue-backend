@@ -39,9 +39,6 @@ module.exports = (sequelize, DataTypes) => {
     average_service_time: {
       type: DataTypes.INTEGER
     },
-    historical_avg_wait: {
-      type: DataTypes.INTEGER
-    },
     created_at: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW

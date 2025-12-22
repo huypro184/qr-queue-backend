@@ -46,15 +46,6 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW
     },
-    password_reset_token: {
-      type: DataTypes.STRING(255)
-    },
-    password_reset_expires: {
-      type: DataTypes.DATE
-    },
-    password_changed_at: {
-      type: DataTypes.DATE
-    },
     project_id: {
       type: DataTypes.INTEGER,
       references: {
