@@ -7,29 +7,35 @@ const { v4: uuidv4 } = require('uuid');
 async function getPredictionsFromAI(payload) {
     const channel = await getChannel();
     const correlationId = uuidv4();
-    const replyQueue = await channel.assertQueue('', { exclusive: true }); // Tạo queue tạm
+
+    // Tạo reply queue ẢO: exclusive + autoDelete
+    // - exclusive: chỉ connection này dùng được
+    // - autoDelete: RabbitMQ TỰ XÓA queue khi consumer hủy (cancel) → không cần gọi deleteQueue()
+    const replyQueue = await channel.assertQueue('', { exclusive: true, autoDelete: true });
 
     return new Promise((resolve, reject) => {
+        let consumerTag = null;
+
         const timeout = setTimeout(() => {
-            channel.deleteQueue(replyQueue.queue).catch(() => {});
+            // Hủy consumer → autoDelete sẽ tự xóa queue
+            if (consumerTag) channel.cancel(consumerTag).catch(() => {});
             reject(new Error('AI Service timeout'));
         }, 10000); // Timeout 10s
 
         // 1. Lắng nghe kết quả trả về
         channel.consume(replyQueue.queue, (msg) => {
-            if (!msg) {
-                // console.log("Consumer cancelled or queue deleted.");
-                return; 
-            }
+            if (!msg) return;
 
             if (msg.properties.correlationId === correlationId) {
                 clearTimeout(timeout);
                 const result = JSON.parse(msg.content.toString());
+                // Hủy consumer → autoDelete tự xóa queue (không cần deleteQueue)
+                if (consumerTag) channel.cancel(consumerTag).catch(() => {});
                 resolve(result);
-                // Xóa queue tạm sau khi xong
-                channel.deleteQueue(replyQueue.queue).catch(() => {});
             }
-        }, { noAck: true });
+        }, { noAck: true }).then(({ consumerTag: tag }) => {
+            consumerTag = tag;
+        });
 
         // 2. Gửi dữ liệu đi
         channel.sendToQueue('ai_queue_prediction', Buffer.from(JSON.stringify(payload)), {
