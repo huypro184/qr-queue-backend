@@ -3,49 +3,48 @@ const logger = require('../utils/logger');
 const { getChannel } = require('../utils/rabbit'); // Giả sử hàm này trả về channel rabbitmq
 const { v4: uuidv4 } = require('uuid');
 
-// Hàm RPC Client: Gửi request và chờ response
 async function getPredictionsFromAI(payload) {
     const channel = await getChannel();
     const correlationId = uuidv4();
+    const REPLY_QUEUE = 'amq.rabbitmq.reply-to';
 
-    // Tạo reply queue ẢO: exclusive + autoDelete
-    // - exclusive: chỉ connection này dùng được
-    // - autoDelete: RabbitMQ TỰ XÓA queue khi consumer hủy (cancel) → không cần gọi deleteQueue()
-    const replyQueue = await channel.assertQueue('', { exclusive: true, autoDelete: true });
-
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
         let consumerTag = null;
 
         const timeout = setTimeout(() => {
-            // Hủy consumer → autoDelete sẽ tự xóa queue
             if (consumerTag) channel.cancel(consumerTag).catch(() => {});
             reject(new Error('AI Service timeout'));
-        }, 10000); // Timeout 10s
+        }, 10000);
 
-        // 1. Lắng nghe kết quả trả về
-        channel.consume(replyQueue.queue, (msg) => {
-            if (!msg) return;
+        const { consumerTag: tag } = await channel.consume(
+            REPLY_QUEUE,
+            (msg) => {
+                if (!msg) return;
 
-            if (msg.properties.correlationId === correlationId) {
-                clearTimeout(timeout);
-                const result = JSON.parse(msg.content.toString());
-                // Hủy consumer → autoDelete tự xóa queue (không cần deleteQueue)
-                if (consumerTag) channel.cancel(consumerTag).catch(() => {});
-                resolve(result);
+                if (msg.properties.correlationId === correlationId) {
+                    clearTimeout(timeout);
+                    const result = JSON.parse(msg.content.toString());
+                    channel.cancel(tag).catch(() => {});
+                    resolve(result);
+                }
+            },
+            { noAck: true, exclusive: true }
+        );
+
+        consumerTag = tag;
+
+        channel.sendToQueue(
+            'ai_queue_prediction',
+            Buffer.from(JSON.stringify(payload)),
+            {
+                correlationId: correlationId,
+                replyTo: REPLY_QUEUE
             }
-        }, { noAck: true }).then(({ consumerTag: tag }) => {
-            consumerTag = tag;
-        });
-
-        // 2. Gửi dữ liệu đi
-        channel.sendToQueue('ai_queue_prediction', Buffer.from(JSON.stringify(payload)), {
-            correlationId: correlationId,
-            replyTo: replyQueue.queue
-        });
+        );
     });
 }
 
-// Hàm chính của bạn
+
 async function predictWaitingTime(lineId) {
     try {
         // 1. Lấy dữ liệu từ DB
